@@ -2,6 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const config = require('../utils/config');
+const { generateDWZChart, generateDWZStatistics } = require('../utils/chartGenerator');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -59,8 +60,8 @@ module.exports = {
             if (searchResults.length === 1) {
                 // Single result - show detailed information
                 const player = searchResults[0];
-                const embed = await createPlayerEmbed(player);
-                await interaction.editReply({ embeds: [embed] });
+                const result = await createPlayerEmbed(player);
+                await interaction.editReply(result);
             } else {
                 // Multiple results - show list
                 const maxResults = config.get('bot.max_search_results', 10);
@@ -655,11 +656,17 @@ async function parseAlternativeFormat($, playerName) {
 async function createPlayerEmbed(player) {
     const embed = new EmbedBuilder()
         .setColor(config.getColor('success'))
-        .setTitle(config.t('player.title'))
+        .setTitle('♔ Spielerprofil')
         .setDescription(`**${player.name}**`);
     
     // Use detailed data if available, otherwise fall back to basic data
     const details = player.details || {};
+    
+    // Prepare result object
+    const result = {
+        embeds: [embed],
+        files: []
+    };
     
     // Add DWZ rating (prefer detailed data)
     const dwzRating = details.dwz || player.dwz;
@@ -737,20 +744,47 @@ async function createPlayerEmbed(player) {
         });
     }
     
-    // Add tournament information if available
+    // Add tournament information and DWZ progression chart if available
     if (details.tournaments && details.tournaments.length > 0) {
         const tournaments = details.tournaments;
         
-        // Create tournament history text
+        // Generate DWZ progression chart
+        try {
+            const chartAttachment = await generateDWZChart(tournaments, player.name);
+            if (chartAttachment) {
+                result.files.push(chartAttachment);
+                embed.setImage(`attachment://${chartAttachment.name}`);
+            }
+        } catch (error) {
+            console.error('Error generating DWZ chart:', error);
+        }
+        
+        // Generate statistics
+        const stats = generateDWZStatistics(tournaments);
+        if (stats) {
+            embed.addFields({
+                name: '📊 DWZ Progression Statistics',
+                value: `**Starting DWZ:** ${stats.startingDWZ}\n` +
+                       `**Current DWZ:** ${stats.currentDWZ}\n` +
+                       `**Total Change:** ${stats.totalChange >= 0 ? '+' : ''}${stats.totalChange}\n` +
+                       `**Best Gain:** +${stats.bestGain}\n` +
+                       `**Worst Loss:** ${stats.worstLoss}\n` +
+                       `**Tournaments:** ${stats.tournamentCount}\n` +
+                       `**Games Played:** ${stats.totalGames}\n` +
+                       `**Average Score:** ${stats.averageScore}%`,
+                inline: true
+            });
+        }
+        
+        // Create tournament history text (shortened for space)
         let tournamentText = '';
-        tournaments.forEach((tournament, index) => {
+        const recentTournaments = tournaments.slice(0, 3); // Show only last 3
+        recentTournaments.forEach((tournament, index) => {
             const name = tournament.turniername || 'Unknown Tournament';
-            const code = tournament.turniercode || '';
             const score = tournament.punkte || '0';
             const games = tournament.partien || '0';
             const oldDwz = tournament.dwzalt || '0';
             const newDwz = tournament.dwzneu || '0';
-            const performance = tournament.leistung || '0';
             
             // Calculate DWZ change
             let dwzChange = '';
@@ -765,25 +799,23 @@ async function createPlayerEmbed(player) {
                 }
             }
             
-            tournamentText += `**${index + 1}. ${name}**\n`;
-            if (code) tournamentText += `Code: ${code}\n`;
-            tournamentText += `Score: ${score}/${games}`;
-            if (performance && performance !== '0') {
-                tournamentText += ` • Performance: ${performance}`;
-            }
+            // Truncate long tournament names
+            const shortName = name.length > 30 ? name.substring(0, 27) + '...' : name;
+            tournamentText += `**${index + 1}. ${shortName}**\n`;
+            tournamentText += `${score}/${games}`;
             if (dwzChange) {
-                tournamentText += ` • DWZ: ${oldDwz}→${newDwz}${dwzChange}`;
+                tournamentText += ` • ${oldDwz}→${newDwz}${dwzChange}`;
             }
             
-            if (index < tournaments.length - 1) {
+            if (index < recentTournaments.length - 1) {
                 tournamentText += '\n\n';
             }
         });
         
         embed.addFields({
-            name: `🏁 Recent Tournaments (Last ${tournaments.length})`,
+            name: `🏁 Recent Tournaments (Last ${recentTournaments.length}${tournaments.length > 3 ? ` of ${tournaments.length}` : ''})`,
             value: tournamentText || 'No tournament data available',
-            inline: false
+            inline: true
         });
     }
     
@@ -842,7 +874,7 @@ async function createPlayerEmbed(player) {
         });
     }
 
-    return embed;
+    return result;
 }
 
 function extractPKZFromLink(link) {
