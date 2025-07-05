@@ -10,9 +10,7 @@ class DiscordBot {
             intents: [
                 GatewayIntentBits.Guilds,
                 GatewayIntentBits.GuildMessages,
-                GatewayIntentBits.MessageContent,
-                GatewayIntentBits.GuildMembers,
-                GatewayIntentBits.GuildVoiceStates
+                GatewayIntentBits.MessageContent
             ]
         });
 
@@ -32,8 +30,42 @@ class DiscordBot {
 
             // Login to Discord
             await this.client.login(process.env.DISCORD_TOKEN);
+            
+            // Wait for the client to be ready and then log useful info
+            this.client.once('ready', () => {
+                console.log(`🆔 Client ID: ${this.client.user.id}`);
+                if (this.client.guilds.cache.size > 0) {
+                    console.log(`🏠 Connected to ${this.client.guilds.cache.size} guild(s):`);
+                    this.client.guilds.cache.forEach(guild => {
+                        console.log(`   - ${guild.name} (ID: ${guild.id})`);
+                    });
+                } else {
+                    console.log(`⚠️  Bot is not in any guilds. Invite it to a server first.`);
+                }
+            });
         } catch (error) {
             console.error('Error initializing bot:', error);
+            
+            if (error.code === 'TokenInvalid') {
+                console.error('🔑 Invalid bot token. Please check your DISCORD_TOKEN in .env file.');
+            } else if (error.message.includes('Privileged intent') || error.message.includes('disallowed intents')) {
+                console.error('🛡️  Privileged intents error!');
+                console.error('');
+                console.error('This happens when the bot tries to use privileged intents that are not enabled.');
+                console.error('');
+                console.error('Quick fix:');
+                console.error('1. Go to https://discord.com/developers/applications');
+                console.error('2. Select your application → Bot');
+                console.error('3. Enable "Message Content Intent" (if not already enabled)');
+                console.error('4. If you need member info, enable "Server Members Intent"');
+                console.error('');
+                console.error('Or see INTENTS.md for detailed instructions.');
+            } else if (error.message.includes('TOKEN_INVALID')) {
+                console.error('🔑 Invalid bot token in .env file.');
+            } else {
+                console.error('❌ Unexpected error:', error.message);
+            }
+            
             process.exit(1);
         }
     }
