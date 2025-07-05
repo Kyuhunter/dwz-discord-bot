@@ -9,29 +9,39 @@ module.exports = {
         .setDescription('Suche nach der DWZ-Wertung eines Schachspielers vom Deutschen Schachbund')
         .addStringOption(option =>
             option.setName('name')
-                .setDescription('Spielername zum Suchen (z.B. "Müller", "Schmidt, Hans" oder "Schmidt München")')
+                .setDescription('Spielername zum Suchen (z.B. "Müller" oder "Schmidt, Hans")')
                 .setRequired(true)
+        )
+        .addStringOption(option =>
+            option.setName('club')
+                .setDescription('Vereinsname zum Filtern (z.B. "München", "SV", "Berlin")')
+                .setRequired(false)
         ),
     
     async execute(interaction) {
         const playerName = interaction.options.getString('name');
+        const clubName = interaction.options.getString('club');
         
         await interaction.deferReply();
         
         try {
-            const searchResults = await searchDWZPlayer(playerName);
+            const searchResults = await searchDWZPlayer(playerName, clubName);
             
             if (searchResults.length === 0) {
+                const searchQuery = clubName ? `${playerName} (Club: ${clubName})` : playerName;
                 const embed = new EmbedBuilder()
                     .setColor(config.getColor('error'))
-                    .setTitle(config.t('search.title'))
-                    .setDescription(config.t('search.no_players_found', { query: playerName }))
+                    .setTitle('🔍 Keine Spieler gefunden')
+                    .setDescription(`Keine Spieler gefunden für: **${searchQuery}**`)
                     .addFields({
-                        name: config.t('search.tips.title'),
-                        value: config.t('search.tips.content')
+                        name: '💡 Suchtipps',
+                        value: '• Überprüfen Sie die Schreibweise\n' +
+                               '• Verwenden Sie nur den Nachnamen\n' +
+                               '• Versuchen Sie alternative Schreibweisen\n' +
+                               (clubName ? '• Überprüfen Sie den Vereinsnamen oder lassen Sie das Club-Feld leer' : '• Verwenden Sie das Club-Feld für präzisere Suche')
                     })
                     .addFields({
-                        name: config.t('search.direct_search.title'),
+                        name: '🔗 Direkte Suche',
                         value: `[${config.t('search.direct_search.link_text')}](${config.get('external.schachbund.base_url')}${config.get('external.schachbund.player_search_endpoint')}?search=${encodeURIComponent(playerName)})`
                     });
 
@@ -54,10 +64,11 @@ module.exports = {
             } else {
                 // Multiple results - show list
                 const maxResults = config.get('bot.max_search_results', 10);
+                const searchQuery = clubName ? `${playerName} (Club: ${clubName})` : playerName;
                 const embed = new EmbedBuilder()
                     .setColor(config.getColor('info'))
                     .setTitle('🔍 Mehrere Spieler gefunden')
-                    .setDescription(`Gefunden: **${searchResults.length}** Spieler für "${playerName}"`);
+                    .setDescription(`Gefunden: **${searchResults.length}** Spieler für "${searchQuery}"`);
 
                 // Show up to configured number of results
                 const resultsToShow = searchResults.slice(0, maxResults);
@@ -67,10 +78,11 @@ module.exports = {
                 if (hasDuplicateNames) {
                     embed.addFields({
                         name: '💡 Tipp für eindeutige Suche',
-                        value: 'Bei mehreren Spielern mit gleichem Namen können Sie mit **Vereinsname** suchen:\n' +
-                               '• `/dwz Schmidt München` - Sucht Schmidt in München\n' +
-                               '• `/dwz Müller SV` - Sucht Müller in einem SV-Verein\n' +
-                               '• `/dwz Wagner Berlin` - Sucht Wagner in Berlin',
+                        value: 'Bei mehreren Spielern mit gleichem Namen verwenden Sie das **club** Feld:\n' +
+                               '• `/dwz name:Schmidt club:München` - Sucht Schmidt in München\n' +
+                               '• `/dwz name:Müller club:SV` - Sucht Müller in einem SV-Verein\n' +
+                               '• `/dwz name:Wagner club:Berlin` - Sucht Wagner in Berlin\n\n' +
+                               'Oder kombiniert: `/dwz name:"Schmidt München"` (alte Syntax weiterhin verfügbar)',
                         inline: false
                     });
                 }
@@ -109,7 +121,7 @@ module.exports = {
                 
                 // Add footer with data source
                 embed.setFooter({
-                    text: 'Daten von schachbund.de • Tipp: Verwenden Sie Vereinsnamen für eindeutige Suche',
+                    text: 'Daten von schachbund.de • Tipp: Nutzen Sie das "club" Feld für präzise Suche',
                     iconURL: 'https://www.schachbund.de/favicon.ico'
                 });
                 
@@ -133,6 +145,7 @@ module.exports = {
                 errorDetails = 'The server is responding slowly. Please try again.';
             }
             
+            const searchQuery = clubName ? `${playerName} (${clubName})` : playerName;
             const embed = new EmbedBuilder()
                 .setColor(0xFF0000)
                 .setTitle('❌ DWZ Search Error')
@@ -155,65 +168,69 @@ module.exports = {
     },
 };
 
-async function searchDWZPlayer(playerName) {
+async function searchDWZPlayer(playerName, clubFilter = null) {
     try {
-        // Check if the search includes club information for disambiguation
+        // Use the provided club filter or try to detect it from the player name
         let searchTerm = playerName;
-        let clubFilter = null;
         
-        // Enhanced club detection patterns
-        const clubKeywords = ['SV', 'SC', 'SK', 'TSV', 'FC', 'TuS', 'Verein', 'Schach', 'Club', 'Klub', 'Chess'];
-        const cityPatterns = /\b([A-ZÄÖÜ][a-zäöüß]{3,}(?:-[A-ZÄÖÜ][a-zäöüß]+)*)\b/; // Cities like "München", "Bad-Neustadt"
-        const words = playerName.trim().split(/\s+/);
-        
-        if (words.length >= 2) {
-            // Check if any word after the first looks like a club identifier
-            for (let i = 1; i < words.length; i++) {
-                const word = words[i];
-                const remainingWords = words.slice(i);
-                
-                // Check for exact club keyword matches
-                const isClubKeyword = clubKeywords.some(keyword => 
-                    word.toLowerCase() === keyword.toLowerCase() ||
-                    word.toLowerCase().includes(keyword.toLowerCase()) || 
-                    keyword.toLowerCase().includes(word.toLowerCase())
-                );
-                
-                // Check for city/place names (capitalized, longer than 3 chars)
-                const looksLikePlace = cityPatterns.test(word);
-                
-                // Check for common club abbreviations or patterns
-                const isClubPattern = /^(SG|TSG|PSV|BSV|ESV|ASV|LSV|VSK|VfL|SpVgg|Sp\.?Vgg)$/i.test(word);
-                
-                // Check for multi-word club names like "SC München" or "Schach Berlin"
-                const hasClubContext = remainingWords.some(w => 
-                    clubKeywords.some(keyword => w.toLowerCase().includes(keyword.toLowerCase()))
-                );
-                
-                if (isClubKeyword || looksLikePlace || isClubPattern || hasClubContext) {
-                    // Split the search: first part is player name, rest is club filter
-                    searchTerm = words.slice(0, i).join(' ');
-                    clubFilter = words.slice(i).join(' ');
-                    console.log(`Detected club-based search: player="${searchTerm}", club filter="${clubFilter}"`);
-                    break;
+        // If no explicit club filter provided, check if the player name contains club information
+        if (!clubFilter) {
+            // Enhanced club detection patterns (kept for backward compatibility)
+            const clubKeywords = ['SV', 'SC', 'SK', 'TSV', 'FC', 'TuS', 'Verein', 'Schach', 'Club', 'Klub', 'Chess'];
+            const cityPatterns = /\b([A-ZÄÖÜ][a-zäöüß]{3,}(?:-[A-ZÄÖÜ][a-zäöüß]+)*)\b/; // Cities like "München", "Bad-Neustadt"
+            const words = playerName.trim().split(/\s+/);
+            
+            if (words.length >= 2) {
+                // Check if any word after the first looks like a club identifier
+                for (let i = 1; i < words.length; i++) {
+                    const word = words[i];
+                    const remainingWords = words.slice(i);
+                    
+                    // Check for exact club keyword matches
+                    const isClubKeyword = clubKeywords.some(keyword => 
+                        word.toLowerCase() === keyword.toLowerCase() ||
+                        word.toLowerCase().includes(keyword.toLowerCase()) || 
+                        keyword.toLowerCase().includes(word.toLowerCase())
+                    );
+                    
+                    // Check for city/place names (capitalized, longer than 3 chars)
+                    const looksLikePlace = cityPatterns.test(word);
+                    
+                    // Check for common club abbreviations or patterns
+                    const isClubPattern = /^(SG|TSG|PSV|BSV|ESV|ASV|LSV|VSK|VfL|SpVgg|Sp\.?Vgg)$/i.test(word);
+                    
+                    // Check for multi-word club names like "SC München" or "Schach Berlin"
+                    const hasClubContext = remainingWords.some(w => 
+                        clubKeywords.some(keyword => w.toLowerCase().includes(keyword.toLowerCase()))
+                    );
+                    
+                    if (isClubKeyword || looksLikePlace || isClubPattern || hasClubContext) {
+                        // Split the search: first part is player name, rest is club filter
+                        searchTerm = words.slice(0, i).join(' ');
+                        clubFilter = words.slice(i).join(' ');
+                        console.log(`Detected club-based search: player="${searchTerm}", club filter="${clubFilter}"`);
+                        break;
+                    }
                 }
             }
-        }
-        
-        // Alternative detection: look for patterns like "Name (Club)" or "Name - Club"
-        const parenthesesMatch = playerName.match(/^(.+?)\s*[\(\-]\s*(.+?)[\)\s]*$/);
-        if (!clubFilter && parenthesesMatch) {
-            const potentialName = parenthesesMatch[1].trim();
-            const potentialClub = parenthesesMatch[2].trim();
             
-            // If the second part looks like a club (contains keywords or is capitalized)
-            if (potentialClub.length > 2 && 
-                (clubKeywords.some(kw => potentialClub.toLowerCase().includes(kw.toLowerCase())) ||
-                 cityPatterns.test(potentialClub))) {
-                searchTerm = potentialName;
-                clubFilter = potentialClub;
-                console.log(`Detected parentheses/dash club search: player="${searchTerm}", club filter="${clubFilter}"`);
+            // Alternative detection: look for patterns like "Name (Club)" or "Name - Club"
+            const parenthesesMatch = playerName.match(/^(.+?)\s*[\(\-]\s*(.+?)[\)\s]*$/);
+            if (!clubFilter && parenthesesMatch) {
+                const potentialName = parenthesesMatch[1].trim();
+                const potentialClub = parenthesesMatch[2].trim();
+                
+                // If the second part looks like a club (contains keywords or is capitalized)
+                if (potentialClub.length > 2 && 
+                    (clubKeywords.some(kw => potentialClub.toLowerCase().includes(kw.toLowerCase())) ||
+                     cityPatterns.test(potentialClub))) {
+                    searchTerm = potentialName;
+                    clubFilter = potentialClub;
+                    console.log(`Detected parentheses/dash club search: player="${searchTerm}", club filter="${clubFilter}"`);
+                }
             }
+        } else {
+            console.log(`Using explicit club filter: "${clubFilter}"`);
         }
         
         // Use the correct search endpoint from schachbund.de
