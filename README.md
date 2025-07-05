@@ -1,6 +1,6 @@
 # DWZ Discord Bot
 
-A modern Discord bot built with Node.js and discord.js v14.
+A modern Discord bot built with Node.js and discord.js v14 that provides DWZ (Deutsche Wertungszahl) chess rating lookup functionality.
 
 ## Features
 
@@ -11,6 +11,9 @@ A modern Discord bot built with Node.js and discord.js v14.
 - 🛡️ Error handling and logging
 - 🔄 Hot-reload support with nodemon
 - 🎯 Easy command deployment
+- ♟️ DWZ chess rating lookup with chart generation
+- 🌐 Multi-language support (English/German)
+- 📊 Visual rating progression charts
 
 ## Prerequisites
 
@@ -19,20 +22,7 @@ A modern Discord bot built with Node.js and discord.js v14.
 
 ## Setup
 
-## Setup
-
-### 1. Quick Setup (Linux/Ubuntu)
-
-Run the automated setup script:
-```bash
-./setup.sh
-```
-
-This will install Node.js, npm, and the bot dependencies automatically.
-
-### 2. Manual Setup
-
-If you prefer manual installation or are on a different system:
+### 1. Installation
 
 **Install Node.js and npm:**
 ```bash
@@ -123,18 +113,36 @@ https://discord.com/api/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=27
 dwz-discord-bot/
 ├── src/
 │   ├── commands/           # Slash commands
-│   │   ├── ping.js
-│   │   ├── help.js
-│   │   └── info.js
+│   │   ├── dwz.js         # DWZ player search
+│   │   ├── help.js        # Help command
+│   │   ├── info.js        # Bot information
+│   │   └── ping.js        # Ping command
+│   ├── constants/          # Centralized constants
+│   │   └── index.js
 │   ├── events/             # Event handlers
 │   │   ├── ready.js
-│   │   ├── interactionCreate.js
-│   │   └── messageCreate.js
-│   ├── index.js            # Main bot file
-│   └── deploy-commands.js  # Command deployment script
+│   │   └── interactionCreate.js
+│   ├── helpers/            # Helper utilities
+│   │   └── errorHandler.js
+│   ├── services/           # Business logic services
+│   │   ├── dwzSearchService.js
+│   │   └── embedService.js
+│   ├── utils/              # Utility functions
+│   │   ├── chartGenerator.js
+│   │   ├── config.js
+│   │   └── logger.js
+│   ├── validators/         # Input validation
+│   │   └── index.js
+│   ├── index.js            # Main bot entry point
+│   ├── deploy-commands.js  # Command deployment
+│   └── get-bot-info.js     # Bot information utility
+├── translations/           # Multi-language support
+│   ├── en.yaml
+│   └── de.yaml
 ├── .env                    # Environment variables
 ├── .env.example           # Environment template
 ├── .gitignore
+├── config.yaml            # Configuration file
 ├── package.json
 └── README.md
 ```
@@ -213,8 +221,6 @@ This error occurs when the bot needs intents that aren't enabled in Discord Deve
 4. Enable "Message Content Intent"
 5. Save changes and restart the bot
 
-For detailed information about intents, see `INTENTS.md`.
-
 ### Common Issues
 
 1. **Bot not responding to commands**
@@ -230,6 +236,11 @@ For detailed information about intents, see `INTENTS.md`.
    - Make sure `.env` file exists and is properly formatted
    - Verify that `DISCORD_TOKEN` is set correctly
    - Only `DISCORD_TOKEN` is required; other values are auto-detected
+
+4. **DWZ search not working**
+   - Verify internet connection for accessing dwz.de
+   - Check if the search name is spelled correctly
+   - Try using different search terms or partial names
 
 ## Contributing
 
