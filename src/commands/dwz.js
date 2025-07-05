@@ -748,12 +748,18 @@ async function createPlayerEmbed(player) {
     if (details.tournaments && details.tournaments.length > 0) {
         const tournaments = details.tournaments;
         
+        console.log(`🏆 Processing tournaments for ${player.name}:`);
+        console.log(`   Total tournaments: ${tournaments.length}`);
+        
         // Generate DWZ progression chart using ALL tournaments
         try {
             const chartAttachment = await generateDWZChart(tournaments, player.name);
             if (chartAttachment) {
+                console.log(`   ✅ Chart generated and attached: ${chartAttachment.name}`);
                 result.files.push(chartAttachment);
                 embed.setImage(`attachment://${chartAttachment.name}`);
+            } else {
+                console.log(`   ❌ No chart generated (insufficient valid tournament data)`);
             }
         } catch (error) {
             console.error('Error generating DWZ chart:', error);

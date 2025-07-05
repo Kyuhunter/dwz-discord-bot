@@ -20,27 +20,65 @@ const chartJSNodeCanvas = new ChartJSNodeCanvas({
  */
 async function generateDWZChart(tournaments, playerName) {
     try {
+        console.log(`🎯 Chart generation for ${playerName}:`);
+        console.log(`   Input tournaments: ${tournaments.length}`);
+        
+        // Log tournament data for debugging
+        tournaments.forEach((t, i) => {
+            console.log(`   ${i + 1}. ${t.turniername || 'Unknown'}: dwzalt="${t.dwzalt}", dwzneu="${t.dwzneu}"`);
+        });
+        
         // Sort tournaments by index (oldest first for progression)
         const sortedTournaments = tournaments
-            .filter(t => t.dwzalt && t.dwzneu && t.dwzalt !== '0' && t.dwzneu !== '0')
+            .filter(t => {
+                // A tournament is valid if it has a valid ending DWZ (dwzneu)
+                // The starting DWZ (dwzalt) can be "0" for first tournaments
+                const hasValidEndDWZ = t.dwzneu && t.dwzneu !== '0' && t.dwzneu !== '' && !isNaN(parseInt(t.dwzneu));
+                return hasValidEndDWZ;
+            })
             .sort((a, b) => a.index - b.index);
         
+        console.log(`   Valid tournaments after filtering: ${sortedTournaments.length}`);
+        
         if (sortedTournaments.length < 2) {
+            console.log(`   ❌ Chart not generated: insufficient valid tournaments (need ≥2, have ${sortedTournaments.length})`);
             return null; // Not enough data for a meaningful chart
         }
+        
+        console.log(`   ✅ Proceeding with chart generation...`);
         
         // Prepare data for the chart
         const labels = [];
         const dwzData = [];
         
-        // Add starting DWZ from first tournament
-        const firstTournament = sortedTournaments[0];
-        labels.push('Start');
-        dwzData.push(parseInt(firstTournament.dwzalt));
+        // Find the first tournament with a valid starting DWZ (non-zero dwzalt)
+        let chartStartIndex = 0;
+        let startingDWZ = null;
         
-        // Add DWZ after each tournament
-        sortedTournaments.forEach((tournament, index) => {
-            const tournamentName = tournament.turniername || `Tournament ${index + 1}`;
+        for (let i = 0; i < sortedTournaments.length; i++) {
+            const tournament = sortedTournaments[i];
+            if (tournament.dwzalt && tournament.dwzalt !== '0' && !isNaN(parseInt(tournament.dwzalt))) {
+                startingDWZ = parseInt(tournament.dwzalt);
+                chartStartIndex = i;
+                break;
+            }
+        }
+        
+        // If no tournament has a valid starting DWZ, use the first tournament's ending DWZ as start
+        if (startingDWZ === null) {
+            startingDWZ = parseInt(sortedTournaments[0].dwzneu);
+            chartStartIndex = 0;
+            // Don't add a "Start" point, just begin with the first tournament
+        } else {
+            // Add the starting DWZ point
+            labels.push('Start');
+            dwzData.push(startingDWZ);
+        }
+        
+        // Add DWZ after each tournament, starting from the appropriate index
+        for (let i = chartStartIndex; i < sortedTournaments.length; i++) {
+            const tournament = sortedTournaments[i];
+            const tournamentName = tournament.turniername || `Tournament ${i + 1}`;
             // Truncate long tournament names
             const shortName = tournamentName.length > 20 
                 ? tournamentName.substring(0, 17) + '...' 
@@ -48,7 +86,7 @@ async function generateDWZChart(tournaments, playerName) {
             
             labels.push(shortName);
             dwzData.push(parseInt(tournament.dwzneu));
-        });
+        }
         
         // Calculate min and max for better chart scaling
         const minDWZ = Math.min(...dwzData);
