@@ -2,7 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const config = require('../utils/config');
-const { generateDWZChart, generateDWZStatistics } = require('../utils/chartGenerator');
+const { generateDWZChart } = require('../utils/chartGenerator');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -748,7 +748,7 @@ async function createPlayerEmbed(player) {
     if (details.tournaments && details.tournaments.length > 0) {
         const tournaments = details.tournaments;
         
-        // Generate DWZ progression chart
+        // Generate DWZ progression chart using ALL tournaments
         try {
             const chartAttachment = await generateDWZChart(tournaments, player.name);
             if (chartAttachment) {
@@ -759,26 +759,9 @@ async function createPlayerEmbed(player) {
             console.error('Error generating DWZ chart:', error);
         }
         
-        // Generate statistics
-        const stats = generateDWZStatistics(tournaments);
-        if (stats) {
-            embed.addFields({
-                name: '📊 DWZ Progression Statistics',
-                value: `**Starting DWZ:** ${stats.startingDWZ}\n` +
-                       `**Current DWZ:** ${stats.currentDWZ}\n` +
-                       `**Total Change:** ${stats.totalChange >= 0 ? '+' : ''}${stats.totalChange}\n` +
-                       `**Best Gain:** +${stats.bestGain}\n` +
-                       `**Worst Loss:** ${stats.worstLoss}\n` +
-                       `**Tournaments:** ${stats.tournamentCount}\n` +
-                       `**Games Played:** ${stats.totalGames}\n` +
-                       `**Average Score:** ${stats.averageScore}%`,
-                inline: true
-            });
-        }
-        
-        // Create tournament history text (shortened for space)
+        // Create tournament history text (show only last 3 tournaments in profile)
         let tournamentText = '';
-        const recentTournaments = tournaments.slice(0, 3); // Show only last 3
+        const recentTournaments = tournaments.slice(0, 3); // Show only last 3 in profile
         recentTournaments.forEach((tournament, index) => {
             const name = tournament.turniername || 'Unknown Tournament';
             const score = tournament.punkte || '0';
@@ -1227,10 +1210,10 @@ async function getPlayerDetails(zpk) {
                     // Sort tournaments by index (highest index = most recent)
                     tournaments.sort((a, b) => b.index - a.index);
                     
-                    // Store the last 3 tournaments
-                    details.tournaments = tournaments.slice(0, 3);
+                    // Store all tournaments for chart generation
+                    details.tournaments = tournaments;
                     
-                    console.log(`Found ${tournaments.length} tournaments, storing last 3`);
+                    console.log(`Found ${tournaments.length} tournaments, storing all for chart generation`);
                 }
             }
             
