@@ -4,12 +4,35 @@
 # Command descriptions
 commands:
   dwz:
-    name: "dwz"
+    name# Error messages
+errors:
+  title: "❌ DWZ-Suchfehler"
+  generic: "Entschuldigung, es gab einen Fehler bei der Spielersuche."
+  unknown: "Unbekannter Fehler aufgetreten"
+  
+  # Required error keys for tests
+  general_error: "Ein allgemeiner Fehler ist bei der Verarbeitung Ihrer Anfrage aufgetreten"
+  network_error: "Netzwerkverbindung fehlgeschlagen. Bitte überprüfen Sie Ihre Internetverbindung"
+  search_failed: "Suchvorgang fehlgeschlagen. Bitte versuchen Sie es später erneut"
+  invalid_input: "Ungültige Eingabe bereitgestellt. Bitte überprüfen Sie Ihre Suchparameter"
+  rate_limited: "Zu viele Anfragen. Bitte warten Sie einen Moment, bevor Sie es erneut versuchen"z"
     description: "Suche nach der DWZ-Wertung eines Schachspielers vom Deutschen Schachbund"
     options:
       name:
         name: "name"
         description: "Spielername zum Suchen (z.B. \"Müller\" oder \"Schmidt, Hans\")"
+  
+  help:
+    name: "help"
+    description: "Verfügbare Befehle und deren Verwendung anzeigen"
+  
+  info:
+    name: "info"
+    description: "Bot-Informationen und Statistiken anzeigen"
+  
+  ping:
+    name: "ping"
+    description: "Bot-Latenz und Antwortzeit prüfen"
 
 # Search results
 search:
@@ -127,6 +150,13 @@ errors:
   generic: "Entschuldigung, es gab einen Fehler bei der Suche nach dem Spieler."
   unknown: "Unbekannter Fehler aufgetreten"
   
+  # Required error keys for tests
+  general_error: "Ein allgemeiner Fehler ist bei der Bearbeitung Ihrer Anfrage aufgetreten"
+  network_error: "Netzwerkverbindung fehlgeschlagen. Bitte überprüfen Sie Ihre Internetverbindung"
+  search_failed: "Suchvorgang fehlgeschlagen. Bitte versuchen Sie es später erneut"
+  invalid_input: "Ungültige Eingabe. Bitte überprüfen Sie Ihre Suchparameter"
+  rate_limited: "Zu viele Anfragen. Bitte warten Sie einen Moment, bevor Sie es erneut versuchen"
+  
   # Specific errors
   service_unavailable:
     title: "Suchdienst vorübergehend nicht verfügbar"
@@ -187,6 +217,14 @@ units:
   rating: "Wertung"
   index: "Index"
   
+# Diagramm-Konfiguration und -Beschriftungen
+chart:
+  title: "DWZ-Wertungsverlauf"
+  rating_axis: "DWZ-Wertung"
+  date_axis: "Turnierdatum"
+  no_data: "Keine Turnierdaten für die Diagrammerstellung verfügbar"
+  generating: "Erstelle Wertungsdiagramm..."
+
 # Date and time (if needed in future)
 datetime:
   formats:

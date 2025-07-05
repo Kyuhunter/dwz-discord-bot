@@ -5,7 +5,7 @@
 
 const axios = require('axios');
 const cheerio = require('cheerio');
-const { EXTERNAL_URLS, LIMITS, ERROR_MESSAGES } = require('../constants');
+const { EXTERNAL_URLS, LIMITS, ERROR_MESSAGES, CLUB_PATTERNS } = require('../constants');
 const { logger } = require('../utils/logger');
 const { validatePlayerName, validateClubName, sanitizeSearchInput } = require('../validators');
 
@@ -17,7 +17,65 @@ class DWZSearchService {
     }
 
     /**
-     * Search for DWZ players
+     * Search for a DWZ player
+     * @param {string} playerName - Name of the player to search for
+     * @param {string|null} clubFilter - Optional club filter
+     * @returns {Promise<Object>} Search result object
+     */
+    async searchPlayer(playerName, clubFilter = null) {
+        try {
+            if (!playerName || typeof playerName !== 'string' || playerName.trim() === '') {
+                return {
+                    success: false,
+                    error: 'Invalid player name provided',
+                    players: []
+                };
+            }
+
+            // Validate inputs
+            const playerValidation = validatePlayerName(playerName);
+            if (!playerValidation.isValid) {
+                return {
+                    success: false,
+                    error: `Invalid player name: ${playerValidation.error}`,
+                    players: []
+                };
+            }
+
+            const sanitizedPlayerName = sanitizeSearchInput(playerName);
+            
+            // Build search URL with player name in the path
+            let searchUrl = `${this.searchEndpoint}?search=${encodeURIComponent(sanitizedPlayerName)}`;
+            if (clubFilter) {
+                searchUrl += `&club=${encodeURIComponent(clubFilter)}`;
+            }
+            
+            // Make search request
+            const response = await axios.get(searchUrl, {
+                timeout: this.timeout,
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (compatible; DWZ-Discord-Bot/1.0)'
+                }
+            });
+
+            const players = this.parseSearchResults(response.data);
+            
+            return {
+                success: true,
+                players: players
+            };
+        } catch (error) {
+            logger.error('Error searching for player:', error);
+            return {
+                success: false,
+                error: error.message,
+                players: []
+            };
+        }
+    }
+
+    /**
+     * Search for DWZ players (legacy method)
      * @param {string} playerName - Name of the player to search for
      * @param {string|null} clubFilter - Optional club filter
      * @returns {Promise<Array>} Array of player objects
@@ -59,18 +117,22 @@ class DWZSearchService {
 
     /**
      * Get detailed player information by ZPK
-     * @param {string} zpk - Player's ZPK identifier
-     * @returns {Promise<Object>} Detailed player information
+     * @param {string} zpkOrId - Player's ZPK identifier
+     * @returns {Promise<Object>} Result object with success status
      */
-    async getPlayerDetails(zpk) {
-        if (!zpk || typeof zpk !== 'string') {
-            throw new Error('Invalid ZPK provided');
-        }
-
-        logger.debug(`Fetching player details for ZPK: ${zpk}`);
-
+    async getPlayerDetails(zpkOrId) {
         try {
-            const response = await axios.get(`${this.baseURL}/spieler/${zpk}.html`, {
+            if (!zpkOrId || typeof zpkOrId !== 'string' || zpkOrId.trim() === '') {
+                return {
+                    success: false,
+                    error: 'Invalid player ID provided',
+                    player: null
+                };
+            }
+
+            logger.debug(`Fetching player details for ID: ${zpkOrId}`);
+
+            const response = await axios.get(`${this.baseURL}/spieler/${zpkOrId}.html`, {
                 timeout: this.timeout,
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (compatible; DWZ-Discord-Bot/1.0)'
@@ -78,11 +140,28 @@ class DWZSearchService {
             });
 
             const $ = cheerio.load(response.data);
-            return this._parsePlayerDetails($, zpk);
+            const player = this._parsePlayerDetails($, zpkOrId);
+            
+            if (!player) {
+                return {
+                    success: false,
+                    error: 'Player not found',
+                    player: null
+                };
+            }
+
+            return {
+                success: true,
+                player: player
+            };
 
         } catch (error) {
-            logger.error(`Failed to fetch player details for ZPK ${zpk}`, error.message);
-            throw this._handleSearchError(error);
+            logger.error(`Failed to fetch player details for ID ${zpkOrId}:`, error);
+            return {
+                success: false,
+                error: error.message,
+                player: null
+            };
         }
     }
 
@@ -130,7 +209,6 @@ class DWZSearchService {
 
         // Simple detection logic (can be enhanced)
         // Look for club keywords in the name
-        const { CLUB_PATTERNS } = require('../constants');
         
         for (let i = 1; i < words.length; i++) {
             const word = words[i];
@@ -213,22 +291,31 @@ class DWZSearchService {
             const dwzCell = $(cells[1]);
             const clubCell = $(cells[2]);
 
-            const name = nameCell.text().trim();
-            const dwz = dwzCell.text().trim();
-            const club = clubCell.text().trim();
+            // Extract name and ID from the link
+            const link = nameCell.find('a');
+            const name = link.length > 0 ? link.text().trim() : nameCell.text().trim();
+            const href = link.attr('href');
+            
+            // Extract player ID from href (e.g., /player/123 -> 123)
+            let playerId = null;
+            if (href) {
+                const match = href.match(/\/player\/(\d+)/);
+                playerId = match ? match[1] : null;
+            }
 
-            // Extract ZPK from link if available
-            const link = nameCell.find('a').attr('href');
-            const zpk = link ? this._extractZPKFromLink(link) : null;
+            const dwzText = dwzCell.text().trim();
+            const dwz = dwzText && !isNaN(dwzText) ? parseInt(dwzText) : null;
+            const club = clubCell.text().trim() || null;
 
             if (!name) return null;
 
             return {
                 name,
-                dwz: dwz || null,
-                club: club || null,
-                zpk: zpk,
-                hasNameDuplicate: false, // Will be set later during deduplication
+                dwz,
+                club,
+                id: playerId,
+                zpk: playerId, // Use same as id for compatibility
+                hasNameDuplicate: false,
                 disambiguationInfo: null
             };
 
@@ -374,6 +461,42 @@ class DWZSearchService {
 
         } catch (error) {
             logger.warn(`Failed to parse tournament row ${index}`, error.message);
+            return null;
+        }
+    }
+
+    /**
+     * Parse search results from HTML (public method for testing)
+     * @param {string} html - HTML content to parse
+     * @returns {Array} Array of player objects
+     */
+    parseSearchResults(html) {
+        try {
+            if (!html || typeof html !== 'string') {
+                return [];
+            }
+            const $ = cheerio.load(html);
+            return this._parseSearchResults($);
+        } catch (error) {
+            logger.error('Error parsing search results:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Parse player details from HTML (public method for testing)
+     * @param {string} html - HTML content to parse
+     * @returns {Object|null} Player details object
+     */
+    parsePlayerDetails(html) {
+        try {
+            if (!html || typeof html !== 'string') {
+                return null;
+            }
+            const $ = cheerio.load(html);
+            return this._parsePlayerDetails($, 'test-zpk');
+        } catch (error) {
+            logger.error('Error parsing player details:', error);
             return null;
         }
     }

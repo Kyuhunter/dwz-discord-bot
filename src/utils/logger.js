@@ -80,7 +80,7 @@ class Logger {
      */
     info(message, data = null) {
         if (this.level >= LOG_LEVELS.INFO) {
-            console.log(this.formatMessage('INFO', message, data));
+            console.info(this.formatMessage('INFO', message, data));
         }
     }
 
@@ -91,7 +91,7 @@ class Logger {
      */
     debug(message, data = null) {
         if (this.level >= LOG_LEVELS.DEBUG) {
-            console.log(this.formatMessage('DEBUG', message, data));
+            console.debug(this.formatMessage('DEBUG', message, data));
         }
     }
 

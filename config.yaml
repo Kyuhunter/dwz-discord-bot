@@ -9,8 +9,8 @@ app:
 
 # Language Settings
 language:
-  default: "de"  # German as default (en for English)
-  fallback: "en"
+  default: "en"  # English as default
+  fallback: "de"
 
 # Bot Behavior Settings
 bot:

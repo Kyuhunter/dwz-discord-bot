@@ -59,23 +59,63 @@ const ERROR_MESSAGES = {
     CONNECTION_ERROR: 'Cannot connect to schachbund.de',
     TIMEOUT_ERROR: 'Search request timed out',
     INVALID_TOKEN: 'Invalid bot token',
-    INSUFFICIENT_DATA: 'Insufficient tournament data for chart generation'
+    INSUFFICIENT_DATA: 'Insufficient tournament data for chart generation',
+    GENERAL_ERROR: 'An unexpected error occurred',
+    NETWORK_ERROR: 'Network connection failed',
+    DWZ_SEARCH_FAILED: 'DWZ search failed'
 };
 
 // Success messages
 const SUCCESS_MESSAGES = {
     BOT_READY: 'Bot is ready and operational',
     COMMAND_LOADED: 'Command loaded successfully',
-    EVENT_LOADED: 'Event loaded successfully'
+    EVENT_LOADED: 'Event loaded successfully',
+    COMMAND_EXECUTED: 'Command executed successfully',
+    DWZ_SEARCH_SUCCESS: 'DWZ search completed successfully'
 };
 
-module.exports = {
-    EXTERNAL_URLS,
-    EMBED_COLORS,
-    LIMITS,
-    CHART_CONFIG,
-    DWZ_CONSTANTS,
-    CLUB_PATTERNS,
-    ERROR_MESSAGES,
-    SUCCESS_MESSAGES
+// DWZ Configuration
+const DWZ_CONFIG = {
+    BASE_URL: 'https://www.schachbund.de',
+    SEARCH_PATH: '/spieler.html',
+    TIMEOUT: 10000,
+    MAX_RESULTS: 10,
+    RETRY_ATTEMPTS: 3
 };
+
+// Log levels
+const LOG_LEVELS = {
+    ERROR: 0,
+    WARN: 1,
+    INFO: 2,
+    DEBUG: 3
+};
+
+// Rate limits
+const RATE_LIMITS = {
+    DWZ_SEARCH: {
+        REQUESTS: 30,
+        WINDOW: 60000
+    }
+};
+
+// Regex patterns
+const REGEX_PATTERNS = {
+    DWZ_NUMBER: /^\d{4}$/,
+    DATE_FORMAT: /^\d{4}-\d{2}-\d{2}$/
+};
+
+module.exports = Object.freeze({
+    EXTERNAL_URLS: Object.freeze(EXTERNAL_URLS),
+    EMBED_COLORS: Object.freeze(EMBED_COLORS),
+    LIMITS: Object.freeze(LIMITS),
+    CHART_CONFIG: Object.freeze(CHART_CONFIG),
+    DWZ_CONSTANTS: Object.freeze(DWZ_CONSTANTS),
+    CLUB_PATTERNS: Object.freeze(CLUB_PATTERNS),
+    ERROR_MESSAGES: Object.freeze(ERROR_MESSAGES),
+    SUCCESS_MESSAGES: Object.freeze(SUCCESS_MESSAGES),
+    DWZ_CONFIG: Object.freeze(DWZ_CONFIG),
+    LOG_LEVELS: Object.freeze(LOG_LEVELS),
+    RATE_LIMITS: Object.freeze(RATE_LIMITS),
+    REGEX_PATTERNS: Object.freeze(REGEX_PATTERNS)
+});

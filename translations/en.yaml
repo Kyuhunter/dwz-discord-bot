@@ -10,6 +10,18 @@ commands:
       name:
         name: "name"
         description: "Player name to search for (e.g., \"Müller\" or \"Schmidt, Hans\")"
+  
+  help:
+    name: "help"
+    description: "Show available commands and how to use them"
+  
+  info:
+    name: "info"
+    description: "Display bot information and statistics"
+  
+  ping:
+    name: "ping"
+    description: "Check bot latency and response time"
 
 # Search results
 search:
@@ -127,6 +139,13 @@ errors:
   generic: "Sorry, there was an error searching for the player."
   unknown: "Unknown error occurred"
   
+  # Required error keys for tests
+  general_error: "A general error occurred while processing your request"
+  network_error: "Network connection failed. Please check your internet connection"
+  search_failed: "Search operation failed. Please try again later"
+  invalid_input: "Invalid input provided. Please check your search parameters"
+  rate_limited: "Too many requests. Please wait a moment before trying again"
+  
   # Specific errors
   service_unavailable:
     title: "Search service temporarily unavailable"
@@ -186,6 +205,14 @@ units:
   games: "Games"
   rating: "Rating"
   index: "Index"
+
+# Chart configuration and labels
+chart:
+  title: "DWZ Rating History"
+  rating_axis: "DWZ Rating"
+  date_axis: "Tournament Date"
+  no_data: "No tournament data available for chart generation"
+  generating: "Generating rating chart..."
   
 # Date and time (if needed in future)
 datetime:

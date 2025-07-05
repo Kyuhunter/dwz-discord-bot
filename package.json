@@ -9,8 +9,15 @@
     "deploy": "node src/deploy-commands.js",
     "info": "node src/get-bot-info.js",
     "clean": "rm -rf temp/* && rm -rf node_modules/.cache",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:unit": "jest tests/unit",
+    "test:integration": "jest tests/integration",
+    "test:commands": "jest tests/commands",
+    "test:ci": "jest --coverage --watchAll=false --ci",
     "lint": "echo 'Linting not configured yet'",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "validate": "npm run test:ci && npm run lint"
   },
   "keywords": [
     "discord",
@@ -28,7 +35,12 @@
     "js-yaml": "^4.1.0"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2"
+    "@types/jest": "^30.0.0",
+    "jest": "^30.0.4",
+    "jest-extended": "^6.0.0",
+    "nock": "^14.0.5",
+    "nodemon": "^3.0.2",
+    "supertest": "^7.1.1"
   },
   "engines": {
     "node": ">=18.0.0"
