@@ -1,14 +1,15 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const axios = require('axios');
 const cheerio = require('cheerio');
+const config = require('../utils/config');
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName('dwz')
-        .setDescription('Search for a chess player\'s DWZ rating from the German Chess Federation')
+        .setName(config.t('commands.dwz.name'))
+        .setDescription(config.t('commands.dwz.description'))
         .addStringOption(option =>
-            option.setName('name')
-                .setDescription('Player name to search for (e.g., "Müller" or "Schmidt, Hans")')
+            option.setName(config.t('commands.dwz.options.name.name'))
+                .setDescription(config.t('commands.dwz.options.name.description'))
                 .setRequired(true)
         ),
     
@@ -22,21 +23,24 @@ module.exports = {
             
             if (searchResults.length === 0) {
                 const embed = new EmbedBuilder()
-                    .setColor(0xFF0000)
-                    .setTitle('🔍 DWZ Search')
-                    .setDescription(`No players found for "${playerName}"`)
+                    .setColor(config.getColor('error'))
+                    .setTitle(config.t('search.title'))
+                    .setDescription(config.t('search.no_players_found', { query: playerName }))
                     .addFields({
-                        name: '💡 Search Tips',
-                        value: '• Try using just the last name\n• Check spelling\n• Try variations (e.g., "ä" vs "ae")\n• Use common German names for testing'
+                        name: config.t('search.tips.title'),
+                        value: config.t('search.tips.content')
                     })
                     .addFields({
-                        name: '🔗 Direct Search',
-                        value: `[Search on schachbund.de](https://www.schachbund.de/spieler.html?search=${encodeURIComponent(playerName)})`
-                    })
-                    .setFooter({
-                        text: 'Data from schachbund.de',
-                        iconURL: 'https://www.schachbund.de/favicon.ico'
+                        name: config.t('search.direct_search.title'),
+                        value: `[${config.t('search.direct_search.link_text')}](${config.get('external.schachbund.base_url')}${config.get('external.schachbund.player_search_endpoint')}?search=${encodeURIComponent(playerName)})`
                     });
+
+                if (config.get('display.embed.show_footer')) {
+                    embed.setFooter({
+                        text: config.t('data_source'),
+                        iconURL: config.get('display.embed.footer_icon')
+                    });
+                }
                 
                 await interaction.editReply({ embeds: [embed] });
                 return;
@@ -49,20 +53,28 @@ module.exports = {
                 await interaction.editReply({ embeds: [embed] });
             } else {
                 // Multiple results - show list
+                const maxResults = config.get('bot.max_search_results', 10);
                 const embed = new EmbedBuilder()
-                    .setColor(0x0099FF)
-                    .setTitle('🔍 DWZ Search Results')
-                    .setDescription(`Found ${searchResults.length} players matching "${playerName}":`)
-                    .setFooter({
-                        text: 'Data from schachbund.de • Use a more specific name to get detailed info',
-                        iconURL: 'https://www.schachbund.de/favicon.ico'
+                    .setColor(config.getColor('info'))
+                    .setTitle(config.t('search.results_title'))
+                    .setDescription(config.t('search.found_players', { count: searchResults.length, query: playerName }));
+
+                if (config.get('display.embed.show_footer')) {
+                    embed.setFooter({
+                        text: `${config.t('data_source')} • ${config.t('search.more_results.footer_hint')}`,
+                        iconURL: config.get('display.embed.footer_icon')
                     });
+                }
                 
-                // Show up to 10 results
-                const resultsToShow = searchResults.slice(0, 10);
+                // Show up to configured number of results
+                const resultsToShow = searchResults.slice(0, maxResults);
                 for (const player of resultsToShow) {
-                    const dwzText = player.dwz ? `DWZ: ${player.dwz}` : 'No DWZ';
-                    const clubText = player.club ? ` • ${player.club}` : '';
+                    const dwzText = player.dwz ? 
+                        config.t('search.multiple_results.dwz_format', { rating: player.dwz }) : 
+                        config.t('search.multiple_results.no_dwz');
+                    const clubText = player.club ? 
+                        config.t('search.multiple_results.club_format', { club: player.club }) : 
+                        config.t('search.multiple_results.no_club');
                     embed.addFields({
                         name: player.name,
                         value: `${dwzText}${clubText}`,
@@ -70,10 +82,10 @@ module.exports = {
                     });
                 }
                 
-                if (searchResults.length > 10) {
+                if (searchResults.length > maxResults) {
                     embed.addFields({
-                        name: '📋 More Results',
-                        value: `... and ${searchResults.length - 10} more players. Use a more specific name to narrow down.`,
+                        name: config.t('search.more_results.title'),
+                        value: config.t('search.more_results.content', { count: searchResults.length - maxResults }),
                         inline: false
                     });
                 }
@@ -227,28 +239,36 @@ async function searchDWZPlayer(playerName) {
         
         console.log(`Found ${uniquePlayers.length} unique players`);
         
-        // Enhance players with ZPK data and detailed information if club information is available
-        for (const player of uniquePlayers) {
-            if (player.club && player.club !== 'Search on website for details') {
-                try {
-                    console.log(`Fetching ZPK for player ${player.name} in club ${player.club}`);
-                    const zpk = await getPlayerZPK(player.name, player.club);
-                    if (zpk) {
-                        player.zpk = zpk;
-                        console.log(`Found ZPK ${zpk} for ${player.name}`);
-                        
-                        // Fetch detailed player information using ZPK
-                        console.log(`Fetching detailed player data for ${player.name}`);
-                        const playerDetails = await getPlayerDetails(zpk);
-                        if (playerDetails) {
-                            player.details = playerDetails;
-                            console.log(`Enhanced ${player.name} with detailed data`);
+        // Only fetch detailed data for single results (to minimize API requests)
+        const shouldFetchDetails = config.get('bot.detailed_data_single_only', true) ? 
+                                  uniquePlayers.length === 1 : true;
+        
+        if (shouldFetchDetails) {
+            // Enhance players with ZPK data and detailed information if club information is available
+            for (const player of uniquePlayers) {
+                if (player.club && player.club !== 'Search on website for details') {
+                    try {
+                        console.log(`Fetching ZPK for player ${player.name} in club ${player.club}`);
+                        const zpk = await getPlayerZPK(player.name, player.club);
+                        if (zpk) {
+                            player.zpk = zpk;
+                            console.log(`Found ZPK ${zpk} for ${player.name}`);
+                            
+                            // Fetch detailed player information using ZPK
+                            console.log(`Fetching detailed player data for ${player.name}`);
+                            const playerDetails = await getPlayerDetails(zpk);
+                            if (playerDetails) {
+                                player.details = playerDetails;
+                                console.log(`Enhanced ${player.name} with detailed data`);
+                            }
                         }
+                    } catch (error) {
+                        console.log(`Could not fetch ZPK for ${player.name}: ${error.message}`);
                     }
-                } catch (error) {
-                    console.log(`Could not fetch ZPK for ${player.name}: ${error.message}`);
                 }
             }
+        } else {
+            console.log(`Skipping detailed data fetch for ${uniquePlayers.length} players (multiple results mode)`);
         }
         
         return uniquePlayers;

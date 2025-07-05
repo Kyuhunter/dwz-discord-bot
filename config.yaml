@@ -1,0 +1,130 @@
+# DWZ Discord Bot Configuration
+# ==============================
+
+# Application Settings
+app:
+  name: "DWZ Discord Bot"
+  version: "1.0.0"
+  debug: false
+
+# Language Settings
+language:
+  default: "de"  # German as default (en for English)
+  fallback: "en"
+
+# Bot Behavior Settings
+bot:
+  # Maximum number of recent tournaments to display
+  max_recent_tournaments: 3
+  
+  # Maximum number of search results to show in list view
+  max_search_results: 10
+  
+  # Show player internal ID (ZPK) in results
+  show_player_id: true
+  
+  # Show FIDE information when available
+  show_fide_info: true
+  
+  # Show member status and number
+  show_member_info: true
+  
+  # Show tournament performance data
+  show_tournament_performance: true
+  
+  # Show DWZ rating changes in tournaments
+  show_dwz_changes: true
+  
+  # Include club information in single player results
+  show_club_info: true
+  
+  # Fetch detailed data only for single player results (not for multiple results)
+  detailed_data_single_only: true
+
+# Rate Limiting Settings
+rate_limiting:
+  # Maximum requests per minute to schachbund.de
+  max_requests_per_minute: 30
+  
+  # Maximum concurrent requests
+  max_concurrent_requests: 5
+  
+  # Request timeout in milliseconds
+  request_timeout: 15000
+  
+  # Retry attempts for failed requests
+  max_retries: 2
+
+# Search Settings
+search:
+  # Enable detailed player data fetching (ZPK lookup)
+  enable_detailed_search: true
+  
+  # Enable club ZPS lookup for detailed data
+  enable_club_lookup: true
+  
+  # Minimum name length for search
+  min_search_length: 2
+  
+  # Enable alternative parsing methods
+  enable_fallback_parsing: true
+
+# Display Settings
+display:
+  # Embed colors (hex without #)
+  colors:
+    success: "00FF00"
+    info: "0099FF"
+    warning: "FFCC00"
+    error: "FF0000"
+  
+  # Embed configuration
+  embed:
+    show_timestamp: true
+    show_footer: true
+    footer_icon: "https://www.schachbund.de/favicon.ico"
+    max_field_length: 1024
+    max_description_length: 4096
+
+# External Services
+external:
+  schachbund:
+    base_url: "https://www.schachbund.de"
+    player_search_endpoint: "/spieler.html"
+    club_search_endpoint: "/verein.html"
+    club_xml_endpoint: "http://www.schachbund.de/php/dewis/verein.php"
+    player_details_endpoint: "http://www.schachbund.de/php/dewis/spieler.php"
+    
+    # User agent for requests
+    user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    
+    # Request headers
+    headers:
+      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
+      accept_language: "de-DE,de;q=0.9,en;q=0.8"
+      accept_encoding: "gzip, deflate, br"
+      connection: "keep-alive"
+
+# Logging Settings
+logging:
+  level: "info"  # debug, info, warn, error
+  enable_console: true
+  enable_file: false
+  file_path: "./logs/dwz-bot.log"
+  max_file_size: "10MB"
+  max_files: 5
+
+# Feature Flags
+features:
+  # Enable caching of search results
+  enable_caching: false
+  cache_duration_minutes: 30
+  
+  # Enable statistics tracking
+  enable_statistics: false
+  
+  # Enable admin commands
+  enable_admin_commands: false
+  
+  # Enable tournament notifications
+  enable_tournament_notifications: false

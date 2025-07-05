@@ -1,0 +1,204 @@
+# German translations for DWZ Discord Bot
+# =========================================
+
+# Command descriptions
+commands:
+  dwz:
+    name: "dwz"
+    description: "Suche nach der DWZ-Wertung eines Schachspielers vom Deutschen Schachbund"
+    options:
+      name:
+        name: "name"
+        description: "Spielername zum Suchen (z.B. \"Müller\" oder \"Schmidt, Hans\")"
+
+# Search results
+search:
+  title: "🔍 DWZ-Suche"
+  results_title: "🔍 DWZ-Suchergebnisse"
+  no_players_found: "Keine Spieler gefunden für \"{query}\""
+  found_players: "Es wurden {count} Spieler gefunden, die zu \"{query}\" passen:"
+  found_reference: "Verweis auf \"{query}\" gefunden"
+  
+  # Search tips
+  tips:
+    title: "💡 Suchtipps"
+    content: |
+      • Versuchen Sie nur den Nachnamen
+      • Überprüfen Sie die Schreibweise
+      • Probieren Sie Variationen (z.B. \"ä\" vs \"ae\")
+      • Verwenden Sie bekannte deutsche Namen zum Testen
+  
+  # Direct search link
+  direct_search:
+    title: "🔗 Direkte Suche"
+    link_text: "Auf schachbund.de suchen"
+  
+  # More results
+  more_results:
+    title: "📋 Weitere Ergebnisse"
+    content: "... und {count} weitere Spieler. Verwenden Sie einen spezifischeren Namen zum Eingrenzen."
+    footer_hint: "Verwenden Sie einen spezifischeren Namen für detaillierte Informationen"
+  
+  # Multiple results display
+  multiple_results:
+    simple_view: "Vereinfachte Ansicht (mehrere Treffer)"
+    dwz_format: "DWZ: {rating}"
+    no_dwz: "Keine DWZ"
+    club_format: "• {club}"
+    no_club: "• Kein Verein"
+
+# Player information
+player:
+  title: "♟️ DWZ-Spielerinformationen"
+  
+  # Ratings
+  dwz_rating:
+    title: "🏆 DWZ-Wertung"
+    no_rating: "Keine Wertung verfügbar"
+    with_index: "{rating} (Index: {index})"
+  
+  fide_rating:
+    title: "🌍 FIDE-Wertung"
+    unrated: "Unbewertet"
+    with_nation: "{rating} ({nation})"
+    with_title: "{title} {rating}"
+    id_format: "ID: {id}"
+  
+  # Member information
+  member_number:
+    title: "🎫 Mitgliedsnummer"
+    format: "#{number}"
+    active: "Aktiv"
+    passive: "Passiv"
+    honorary: "Ehrenmitglied"
+    youth: "Jugend"
+  
+  # Club information
+  club:
+    title: "🏛️ Verein"
+    check_manual: "Manuelle Suche für Details prüfen"
+  
+  # Player ID
+  player_id:
+    title: "🆔 Spieler-ID (ZPK)"
+  
+  # Title
+  title_field:
+    title: "🎖️ Titel"
+  
+  # Nationality
+  nationality:
+    title: "🌍 Nationalität"
+  
+  # Profile link
+  profile_link:
+    title: "🔗 Vollständiges Profil"
+    link_text: "Auf schachbund.de anzeigen"
+
+# Tournament information
+tournaments:
+  title: "🏁 Aktuelle Turniere (Letzte {count})"
+  no_data: "Keine Turnierdaten verfügbar"
+  last_tournament: "🏁 Letztes Turnier"
+  
+  # Tournament details
+  code: "Code"
+  score: "Ergebnis"
+  performance: "Leistung"
+  dwz_change: "DWZ"
+  
+  # Tournament formats
+  score_format: "{score}/{games}"
+  dwz_change_format: "{old}→{new}"
+  dwz_change_positive: "(+{change})"
+  dwz_change_negative: "({change})"
+  dwz_change_zero: "(0)"
+
+# Error messages
+errors:
+  title: "❌ DWZ-Suchfehler"
+  generic: "Entschuldigung, es gab einen Fehler bei der Suche nach dem Spieler."
+  unknown: "Unbekannter Fehler aufgetreten"
+  
+  # Specific errors
+  service_unavailable:
+    title: "Suchdienst vorübergehend nicht verfügbar"
+    description: "Der Such-Endpunkt hat sich möglicherweise geändert. Versuchen Sie es später erneut oder suchen Sie direkt auf schachbund.de"
+  
+  connection_failed:
+    title: "Verbindung zu schachbund.de nicht möglich"
+    description: "Überprüfen Sie Ihre Internetverbindung oder versuchen Sie es später erneut"
+  
+  timeout:
+    title: "Such-Anfrage abgelaufen"
+    description: "Der Server antwortet langsam. Bitte versuchen Sie es erneut."
+  
+  not_found:
+    title: "Such-Endpunkt nicht gefunden"
+    description: "Die Website-Struktur hat sich möglicherweise geändert."
+  
+  server_error:
+    title: "Serverfehler auf schachbund.de"
+    description: "Bitte versuchen Sie es später erneut."
+  
+  # Error details
+  details_title: "Fehlerdetails"
+  alternative_title: "🔗 Alternative"
+  alternative_link: "Direkt auf schachbund.de suchen"
+
+# Status messages
+status:
+  searching: "Suche nach: {query}"
+  found_club: "Verein gefunden: {club}"
+  found_zps: "ZPS gefunden: {zps}"
+  found_zpk: "ZPK gefunden: {zpk} für {player}"
+  enhanced_player: "{player} mit detaillierten Daten erweitert"
+  fetching_details: "Lade detaillierte Spielerdaten für {player}"
+  no_zpk: "Konnte ZPK für {player} nicht finden"
+
+# Data source
+data_source: "Daten von schachbund.de"
+
+# Common terms
+common:
+  yes: "Ja"
+  no: "Nein"
+  unknown: "Unbekannt"
+  none: "Keine"
+  active: "Aktiv"
+  inactive: "Inaktiv"
+  loading: "Wird geladen..."
+  error: "Fehler"
+  success: "Erfolg"
+  cancel: "Abbrechen"
+  confirm: "Bestätigen"
+
+# Units and formats
+units:
+  points: "Punkte"
+  games: "Partien"
+  rating: "Wertung"
+  index: "Index"
+  
+# Date and time (if needed in future)
+datetime:
+  formats:
+    date: "DD.MM.YYYY"
+    time: "HH:mm"
+    datetime: "DD.MM.YYYY HH:mm"
+
+# Validation messages
+validation:
+  name_too_short: "Der Name muss mindestens {min} Zeichen lang sein"
+  invalid_characters: "Der Name enthält ungültige Zeichen"
+  
+# Admin messages (for future use)
+admin:
+  commands_disabled: "Admin-Befehle sind deaktiviert"
+  insufficient_permissions: "Unzureichende Berechtigungen"
+  config_reloaded: "Konfiguration neu geladen"
+  
+# Feature flags messages
+features:
+  disabled: "Diese Funktion ist deaktiviert"
+  experimental: "Diese Funktion ist experimentell"

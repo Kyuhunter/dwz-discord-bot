@@ -10,14 +10,19 @@
     "info": "node src/get-bot-info.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["discord", "bot", "discord.js"],
+  "keywords": [
+    "discord",
+    "bot",
+    "discord.js"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "axios": "^1.6.2",
+    "cheerio": "^1.0.0-rc.12",
     "discord.js": "^14.14.1",
     "dotenv": "^16.3.1",
-    "axios": "^1.6.2",
-    "cheerio": "^1.0.0-rc.12"
+    "js-yaml": "^4.1.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
