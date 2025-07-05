@@ -8,6 +8,8 @@
     "dev": "nodemon src/index.js",
     "deploy": "node src/deploy-commands.js",
     "info": "node src/get-bot-info.js",
+    "clean": "rm -rf temp/* && rm -rf node_modules/.cache",
+    "lint": "echo 'Linting not configured yet'",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
