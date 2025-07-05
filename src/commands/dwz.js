@@ -5,11 +5,11 @@ const config = require('../utils/config');
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName(config.t('commands.dwz.name'))
-        .setDescription(config.t('commands.dwz.description'))
+        .setName('dwz')
+        .setDescription('Suche nach der DWZ-Wertung eines Schachspielers vom Deutschen Schachbund')
         .addStringOption(option =>
-            option.setName(config.t('commands.dwz.options.name.name'))
-                .setDescription(config.t('commands.dwz.options.name.description'))
+            option.setName('name')
+                .setDescription('Spielername zum Suchen (z.B. "Müller", "Schmidt, Hans" oder "Schmidt München")')
                 .setRequired(true)
         ),
     
@@ -56,39 +56,62 @@ module.exports = {
                 const maxResults = config.get('bot.max_search_results', 10);
                 const embed = new EmbedBuilder()
                     .setColor(config.getColor('info'))
-                    .setTitle(config.t('search.results_title'))
-                    .setDescription(config.t('search.found_players', { count: searchResults.length, query: playerName }));
+                    .setTitle('🔍 Mehrere Spieler gefunden')
+                    .setDescription(`Gefunden: **${searchResults.length}** Spieler für "${playerName}"`);
 
-                if (config.get('display.embed.show_footer')) {
-                    embed.setFooter({
-                        text: `${config.t('data_source')} • ${config.t('search.more_results.footer_hint')}`,
-                        iconURL: config.get('display.embed.footer_icon')
+                // Show up to configured number of results
+                const resultsToShow = searchResults.slice(0, maxResults);
+                
+                // Check if there are any players with duplicate names
+                const hasDuplicateNames = resultsToShow.some(player => player.hasNameDuplicate);
+                if (hasDuplicateNames) {
+                    embed.addFields({
+                        name: '💡 Tipp für eindeutige Suche',
+                        value: 'Bei mehreren Spielern mit gleichem Namen können Sie mit **Vereinsname** suchen:\n' +
+                               '• `/dwz Schmidt München` - Sucht Schmidt in München\n' +
+                               '• `/dwz Müller SV` - Sucht Müller in einem SV-Verein\n' +
+                               '• `/dwz Wagner Berlin` - Sucht Wagner in Berlin',
+                        inline: false
                     });
                 }
                 
-                // Show up to configured number of results
-                const resultsToShow = searchResults.slice(0, maxResults);
                 for (const player of resultsToShow) {
                     const dwzText = player.dwz ? 
-                        config.t('search.multiple_results.dwz_format', { rating: player.dwz }) : 
-                        config.t('search.multiple_results.no_dwz');
+                        `🏆 DWZ ${player.dwz}` : 
+                        '🏆 Keine DWZ';
                     const clubText = player.club ? 
-                        config.t('search.multiple_results.club_format', { club: player.club }) : 
-                        config.t('search.multiple_results.no_club');
+                        `\n🏛️ ${player.club}` : 
+                        '\n🏛️ Verein unbekannt';
+                    
+                    // Build the display name with disambiguation if needed
+                    let displayName = player.name;
+                    let valueText = `${dwzText}${clubText}`;
+                    
+                    // Add disambiguation info for duplicate names
+                    if (player.hasNameDuplicate && player.disambiguationInfo) {
+                        valueText += `\n\n**Unterscheidung:** ${player.disambiguationInfo}`;
+                    }
+                    
                     embed.addFields({
-                        name: player.name,
-                        value: `${dwzText}${clubText}`,
+                        name: displayName,
+                        value: valueText,
                         inline: true
                     });
                 }
                 
                 if (searchResults.length > maxResults) {
                     embed.addFields({
-                        name: config.t('search.more_results.title'),
-                        value: config.t('search.more_results.content', { count: searchResults.length - maxResults }),
+                        name: '📋 Weitere Ergebnisse',
+                        value: `Es gibt ${searchResults.length - maxResults} weitere Spieler. Verwenden Sie einen spezifischeren Suchbegriff oder Vereinsnamen.`,
                         inline: false
                     });
                 }
+                
+                // Add footer with data source
+                embed.setFooter({
+                    text: 'Daten von schachbund.de • Tipp: Verwenden Sie Vereinsnamen für eindeutige Suche',
+                    iconURL: 'https://www.schachbund.de/favicon.ico'
+                });
                 
                 await interaction.editReply({ embeds: [embed] });
             }
@@ -134,10 +157,72 @@ module.exports = {
 
 async function searchDWZPlayer(playerName) {
     try {
-        // Use the correct search endpoint from schachbund.de
-        const searchUrl = `https://www.schachbund.de/spieler.html?search=${encodeURIComponent(playerName)}`;
+        // Check if the search includes club information for disambiguation
+        let searchTerm = playerName;
+        let clubFilter = null;
         
-        console.log(`Searching for: ${playerName} at ${searchUrl}`);
+        // Enhanced club detection patterns
+        const clubKeywords = ['SV', 'SC', 'SK', 'TSV', 'FC', 'TuS', 'Verein', 'Schach', 'Club', 'Klub', 'Chess'];
+        const cityPatterns = /\b([A-ZÄÖÜ][a-zäöüß]{3,}(?:-[A-ZÄÖÜ][a-zäöüß]+)*)\b/; // Cities like "München", "Bad-Neustadt"
+        const words = playerName.trim().split(/\s+/);
+        
+        if (words.length >= 2) {
+            // Check if any word after the first looks like a club identifier
+            for (let i = 1; i < words.length; i++) {
+                const word = words[i];
+                const remainingWords = words.slice(i);
+                
+                // Check for exact club keyword matches
+                const isClubKeyword = clubKeywords.some(keyword => 
+                    word.toLowerCase() === keyword.toLowerCase() ||
+                    word.toLowerCase().includes(keyword.toLowerCase()) || 
+                    keyword.toLowerCase().includes(word.toLowerCase())
+                );
+                
+                // Check for city/place names (capitalized, longer than 3 chars)
+                const looksLikePlace = cityPatterns.test(word);
+                
+                // Check for common club abbreviations or patterns
+                const isClubPattern = /^(SG|TSG|PSV|BSV|ESV|ASV|LSV|VSK|VfL|SpVgg|Sp\.?Vgg)$/i.test(word);
+                
+                // Check for multi-word club names like "SC München" or "Schach Berlin"
+                const hasClubContext = remainingWords.some(w => 
+                    clubKeywords.some(keyword => w.toLowerCase().includes(keyword.toLowerCase()))
+                );
+                
+                if (isClubKeyword || looksLikePlace || isClubPattern || hasClubContext) {
+                    // Split the search: first part is player name, rest is club filter
+                    searchTerm = words.slice(0, i).join(' ');
+                    clubFilter = words.slice(i).join(' ');
+                    console.log(`Detected club-based search: player="${searchTerm}", club filter="${clubFilter}"`);
+                    break;
+                }
+            }
+        }
+        
+        // Alternative detection: look for patterns like "Name (Club)" or "Name - Club"
+        const parenthesesMatch = playerName.match(/^(.+?)\s*[\(\-]\s*(.+?)[\)\s]*$/);
+        if (!clubFilter && parenthesesMatch) {
+            const potentialName = parenthesesMatch[1].trim();
+            const potentialClub = parenthesesMatch[2].trim();
+            
+            // If the second part looks like a club (contains keywords or is capitalized)
+            if (potentialClub.length > 2 && 
+                (clubKeywords.some(kw => potentialClub.toLowerCase().includes(kw.toLowerCase())) ||
+                 cityPatterns.test(potentialClub))) {
+                searchTerm = potentialName;
+                clubFilter = potentialClub;
+                console.log(`Detected parentheses/dash club search: player="${searchTerm}", club filter="${clubFilter}"`);
+            }
+        }
+        
+        // Use the correct search endpoint from schachbund.de
+        const searchUrl = `https://www.schachbund.de/spieler.html?search=${encodeURIComponent(searchTerm)}`;
+        
+        console.log(`Searching for: ${searchTerm} at ${searchUrl}`);
+        if (clubFilter) {
+            console.log(`Will filter results by club containing: ${clubFilter}`);
+        }
         
         const response = await axios.get(searchUrl, {
             headers: {
@@ -191,6 +276,27 @@ async function searchDWZPlayer(playerName) {
                         const name = nameCell.text().trim();
                         const dwzText = dwzCell.text().trim();
                         const clubText = clubCell.text().trim();
+                        const lastEval = lastEvalCell.text().trim();
+                        
+                        // Try to extract player link/ID for unique identification
+                        let playerId = null;
+                        let playerLink = null;
+                        const nameLink = nameCell.find('a');
+                        if (nameLink.length > 0) {
+                            playerLink = nameLink.attr('href');
+                            // Extract player ID from link (e.g., spieler.php?pkz=123456)
+                            const idMatch = playerLink ? playerLink.match(/pkz=(\d+)/) : null;
+                            if (idMatch) {
+                                playerId = idMatch[1];
+                            }
+                        }
+                        
+                        // Extract birth year from name if present (format: "Name (1995)")
+                        let birthYear = null;
+                        const yearMatch = name.match(/\((\d{4})\)/);
+                        if (yearMatch) {
+                            birthYear = yearMatch[1];
+                        }
                         
                         // Extract DWZ number (format might be "1253 - 39" where 1253 is the rating)
                         let dwz = null;
@@ -213,9 +319,11 @@ async function searchDWZPlayer(playerName) {
                                 name: name,
                                 dwz: dwz,
                                 club: club,
-                                pkz: null, // Not available in search results
-                                link: null,
-                                zpk: null // Will be fetched later if club is available
+                                pkz: playerId, // Now extracted from search results
+                                link: playerLink,
+                                zpk: null, // Will be fetched later if club is available
+                                birthYear: birthYear,
+                                lastEvaluation: lastEval
                             };
                             
                             players.push(player);
@@ -232,20 +340,141 @@ async function searchDWZPlayer(playerName) {
             return await parseAlternativeFormat($, playerName);
         }
         
-        // Remove duplicates based on name and DWZ
-        const uniquePlayers = players.filter((player, index, self) => 
-            index === self.findIndex((p) => p.name === player.name && p.dwz === player.dwz)
-        );
+        // Remove duplicates based on player ID (pkz) if available, otherwise name and DWZ
+        const uniquePlayers = players.filter((player, index, self) => {
+            if (player.pkz) {
+                // Use player ID for exact identification
+                return index === self.findIndex((p) => p.pkz === player.pkz);
+            } else {
+                // Fallback to name, DWZ, and club for identification
+                return index === self.findIndex((p) => 
+                    p.name === player.name && 
+                    p.dwz === player.dwz && 
+                    p.club === player.club
+                );
+            }
+        });
         
         console.log(`Found ${uniquePlayers.length} unique players`);
         
+        // Apply club filter if specified
+        let filteredPlayers = uniquePlayers;
+        if (clubFilter) {
+            filteredPlayers = uniquePlayers.filter(player => {
+                if (!player.club) return false;
+                
+                const clubLower = player.club.toLowerCase();
+                const filterLower = clubFilter.toLowerCase();
+                
+                // Direct substring match
+                if (clubLower.includes(filterLower) || filterLower.includes(clubLower)) {
+                    return true;
+                }
+                
+                // Word-based matching for better partial matches
+                const clubWords = clubLower.split(/\s+/);
+                const filterWords = filterLower.split(/\s+/);
+                
+                // Check if any filter word matches any club word
+                const hasWordMatch = filterWords.some(filterWord => 
+                    clubWords.some(clubWord => 
+                        clubWord.includes(filterWord) || filterWord.includes(clubWord)
+                    )
+                );
+                
+                // Check for abbreviation matches (e.g., "SC" matches "Schachclub")
+                const hasAbbrevMatch = filterWords.some(filterWord => {
+                    if (filterWord.length <= 3) {
+                        return clubWords.some(clubWord => 
+                            clubWord.startsWith(filterWord) || 
+                            clubWord === filterWord
+                        );
+                    }
+                    return false;
+                });
+                
+                return hasWordMatch || hasAbbrevMatch;
+            });
+            
+            console.log(`After club filter "${clubFilter}": ${filteredPlayers.length} players remain`);
+            
+            // If club filter eliminates all results, fall back to original results
+            if (filteredPlayers.length === 0) {
+                console.log('Club filter eliminated all results, falling back to full list');
+                filteredPlayers = uniquePlayers;
+            }
+        }
+        
+        // Check for players with identical names but different identifiers
+        const nameGroups = filteredPlayers.reduce((groups, player) => {
+            const cleanName = player.name.replace(/\s*\(\d{4}\)\s*/, '').trim(); // Remove birth year from name
+            if (!groups[cleanName]) {
+                groups[cleanName] = [];
+            }
+            groups[cleanName].push(player);
+            return groups;
+        }, {});
+        
+        // Add disambiguation info for players with identical names
+        Object.values(nameGroups).forEach(group => {
+            if (group.length > 1) {
+                console.log(`Found ${group.length} players with identical name: ${group[0].name}`);
+                
+                // Sort players by club name for consistent display order
+                group.sort((a, b) => {
+                    const clubA = a.club || 'zzz_no_club';
+                    const clubB = b.club || 'zzz_no_club';
+                    return clubA.localeCompare(clubB);
+                });
+                
+                group.forEach(player => {
+                    player.hasNameDuplicate = true;
+                    const disambiguationParts = [];
+                    
+                    // Primary: Use club name as main differentiator
+                    if (player.club && player.club !== 'Search on website for details') {
+                        // Shorten very long club names for display
+                        let clubName = player.club;
+                        if (clubName.length > 40) {
+                            clubName = clubName.substring(0, 37) + '...';
+                        }
+                        disambiguationParts.push(`🏛️ ${clubName}`);
+                    } else {
+                        disambiguationParts.push('🏛️ Club unknown');
+                    }
+                    
+                    // Secondary: Add birth year if available
+                    if (player.birthYear) {
+                        disambiguationParts.push(`📅 Born ${player.birthYear}`);
+                    }
+                    
+                    // Tertiary: Add DWZ if clubs are the same or for additional context
+                    if (player.dwz && player.dwz !== '0' && player.dwz !== '') {
+                        // Check if other players in group have same club
+                        const sameClubPlayers = group.filter(p => p.club === player.club);
+                        if (sameClubPlayers.length > 1 || !player.club || player.club === 'Search on website for details') {
+                            disambiguationParts.push(`🏆 DWZ ${player.dwz}`);
+                        }
+                    }
+                    
+                    // Quaternary: Add player ID if still ambiguous
+                    if (player.pkz && (disambiguationParts.length <= 1 || 
+                        group.filter(p => p.club === player.club && p.birthYear === player.birthYear).length > 1)) {
+                        disambiguationParts.push(`🆔 ID ${player.pkz}`);
+                    }
+                    
+                    player.disambiguationInfo = disambiguationParts.join(' • ');
+                });
+            }
+        });
+        
         // Only fetch detailed data for single results (to minimize API requests)
         const shouldFetchDetails = config.get('bot.detailed_data_single_only', true) ? 
-                                  uniquePlayers.length === 1 : true;
+                                  filteredPlayers.length === 1 : true;
         
         if (shouldFetchDetails) {
             // Enhance players with ZPK data and detailed information if club information is available
-            for (const player of uniquePlayers) {
+            for (const player of filteredPlayers) {
                 if (player.club && player.club !== 'Search on website for details') {
                     try {
                         console.log(`Fetching ZPK for player ${player.name} in club ${player.club}`);
@@ -268,10 +497,10 @@ async function searchDWZPlayer(playerName) {
                 }
             }
         } else {
-            console.log(`Skipping detailed data fetch for ${uniquePlayers.length} players (multiple results mode)`);
+            console.log(`Skipping detailed data fetch for ${filteredPlayers.length} players (multiple results mode)`);
         }
         
-        return uniquePlayers;
+        return filteredPlayers;
         
     } catch (error) {
         console.error('DWZ Search Error:', error.message);
@@ -332,19 +561,39 @@ async function parseAlternativeFormat($, playerName) {
                     
                     // Look for club in the last cell or cells with links
                     let club = null;
+                    let playerId = null;
+                    let playerLink = null;
+                    let birthYear = null;
+                    
+                    // Extract birth year from name if present
+                    const yearMatch = firstCellText.match(/\((\d{4})\)/);
+                    if (yearMatch) {
+                        birthYear = yearMatch[1];
+                    }
+                    
                     for (let i = cells.length - 1; i >= 0; i--) {
                         const $cell = $(cells[i]);
                         const cellText = $cell.text().trim();
                         const cellLink = $cell.find('a');
                         
-                        if (cellLink.length > 0 && cellLink.attr('href')?.includes('verein')) {
-                            club = cellLink.text().trim();
-                            break;
+                        // Try to extract player ID from any links
+                        if (cellLink.length > 0) {
+                            const href = cellLink.attr('href');
+                            if (href) {
+                                const idMatch = href.match(/pkz=(\d+)/);
+                                if (idMatch) {
+                                    playerId = idMatch[1];
+                                    playerLink = href;
+                                }
+                                
+                                if (href.includes('verein')) {
+                                    club = cellLink.text().trim();
+                                }
+                            }
                         } else if (cellText.length > 5 && 
                                    !cellText.match(/^\d+$/) && 
                                    !cellText.includes('-----')) {
                             club = cellText;
-                            break;
                         }
                     }
                     
@@ -352,9 +601,11 @@ async function parseAlternativeFormat($, playerName) {
                         name: firstCellText,
                         dwz: dwz,
                         club: club,
-                        pkz: null,
-                        link: null,
-                        zpk: null
+                        pkz: playerId,
+                        link: playerLink,
+                        zpk: null,
+                        birthYear: birthYear,
+                        lastEvaluation: null
                     });
                     
                     console.log(`Alternative method found: ${firstCellText}, DWZ: ${dwz}, Club: ${club}`);
@@ -386,14 +637,9 @@ async function parseAlternativeFormat($, playerName) {
 
 async function createPlayerEmbed(player) {
     const embed = new EmbedBuilder()
-        .setColor(0x00FF00)
-        .setTitle('♟️ DWZ Player Information')
-        .setDescription(`**${player.name}**`)
-        .setFooter({
-            text: 'Data from schachbund.de',
-            iconURL: 'https://www.schachbund.de/favicon.ico'
-        })
-        .setTimestamp();
+        .setColor(config.getColor('success'))
+        .setTitle(config.t('player.title'))
+        .setDescription(`**${player.name}**`);
     
     // Use detailed data if available, otherwise fall back to basic data
     const details = player.details || {};
@@ -571,6 +817,14 @@ async function createPlayerEmbed(player) {
         });
     }
     
+    // Add footer if enabled
+    if (config.get('display.embed.show_footer')) {
+        embed.setFooter({
+            text: config.t('data_source'),
+            iconURL: config.get('display.embed.footer_icon')
+        });
+    }
+
     return embed;
 }
 

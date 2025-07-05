@@ -46,6 +46,13 @@ search:
     no_dwz: "Keine DWZ"
     club_format: "• {club}"
     no_club: "• Kein Verein"
+    
+  # Player disambiguation
+  disambiguation:
+    birth_year: "Jg. {year}"
+    player_id: "ID: {id}"
+    duplicate_names: "⚠️ Mehrere Spieler mit gleichem Namen gefunden"
+    distinguish_by: "Unterscheidbar durch: {info}"
 
 # Player information
 player:

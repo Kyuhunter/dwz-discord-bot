@@ -23,6 +23,13 @@ search:
     no_dwz: "Keine DWZ"
     club_format: "• {club}"
     no_club: "• Kein Verein"
+    
+  # Player disambiguation
+  disambiguation:
+    birth_year: "Jg. {year}"
+    player_id: "ID: {id}"
+    duplicate_names: "⚠️ Mehrere Spieler mit gleichem Namen gefunden"
+    distinguish_by: "Unterscheidbar durch: {info}"
 ```
 
 ### English (`translations/en.yaml`)
@@ -34,6 +41,13 @@ search:
     no_dwz: "No DWZ"
     club_format: "• {club}"
     no_club: "• No club"
+    
+  # Player disambiguation
+  disambiguation:
+    birth_year: "Born {year}"
+    player_id: "ID: {id}"
+    duplicate_names: "⚠️ Multiple players with identical names found"
+    distinguish_by: "Distinguished by: {info}"
 ```
 
 ## 🔧 **Code Changes**
@@ -62,6 +76,65 @@ search:
        config.t('search.multiple_results.club_format', { club: player.club }) : 
        config.t('search.multiple_results.no_club');
    ```
+
+3. **Player Disambiguation System**:
+   ```javascript
+   // Extract unique identifiers from search results
+   const nameLink = nameCell.find('a');
+   if (nameLink.length > 0) {
+       playerLink = nameLink.attr('href');
+       const idMatch = playerLink ? playerLink.match(/pkz=(\d+)/) : null;
+       if (idMatch) {
+           playerId = idMatch[1];
+       }
+   }
+   
+   // Detect players with identical names
+   const nameGroups = uniquePlayers.reduce((groups, player) => {
+       const cleanName = player.name.replace(/\s*\(\d{4}\)\s*/, '').trim();
+       if (!groups[cleanName]) groups[cleanName] = [];
+       groups[cleanName].push(player);
+       return groups;
+   }, {});
+   
+   // Add disambiguation info for duplicate names
+   Object.values(nameGroups).forEach(group => {
+       if (group.length > 1) {
+           group.forEach(player => {
+               player.hasNameDuplicate = true;
+               // Add birth year, player ID, or other distinguishing info
+           });
+       }
+   });
+   ```
+
+## 🎭 **Player Disambiguation Features**
+
+### **Automatic Detection**
+- ✅ Extracts player IDs (PKZ) from search result links
+- ✅ Detects birth years in player names (e.g., "Müller, Hans (1985)")
+- ✅ Identifies players with identical names but different identifiers
+- ✅ Groups players by clean name for duplicate detection
+
+### **Enhanced Display**
+- ✅ Shows warning when multiple players have identical names
+- ✅ Displays distinguishing information (ID, birth year, club)
+- ✅ Uses proper unique identification based on PKZ when available
+- ✅ Fallback to name+DWZ+club combination for older entries
+
+### **Example Disambiguation Output**
+```
+⚠️ Mehrere Spieler mit gleichem Namen gefunden
+Unterscheidbar durch: ID, Geburtsjahr oder Verein
+
+Müller, Hans
+DWZ: 1456 • SC München 1836
+Unterscheidbar durch: ID: 123456
+
+Müller, Hans (1985)
+DWZ: 1623 • Schachfreunde Berlin  
+Unterscheidbar durch: Jg. 1985, ID: 789012
+```
 
 ## 📊 **Behavior Comparison**
 
