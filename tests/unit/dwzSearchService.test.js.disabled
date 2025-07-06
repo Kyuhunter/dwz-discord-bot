@@ -1,0 +1,499 @@
+/**
+ * Unit Tests for DWZ Search Service
+ */
+
+const axios = require('axios');
+const DWZSearchService = require('../../src/services/dwzSearchService');
+
+// Mock axios completely
+jest.mock('axios');
+const mockedAxios = axios;
+
+describe('DWZ Search Service', () => {
+  let dwzSearchService;
+
+  beforeEach(() => {
+    dwzSearchService = new DWZSearchService();
+    jest.clearAllMocks();
+  });
+
+  describe('searchPlayer', () => {
+    test('should search for a player successfully', async () => {
+      const mockHtmlResponse = `
+        <table>
+          <tr>
+            <td><a href="/player/123">Hans Müller</a></td>
+            <td>1500</td>
+            <td>SC Berlin</td>
+          </tr>
+        </table>
+      `;
+
+      mockedAxios.get.mockResolvedValueOnce({
+        data: mockHtmlResponse,
+        status: 200
+      });
+
+      const result = await dwzSearchService.searchPlayer('Hans Müller');
+
+      expect(result).toBeDefined();
+      expect(result.success).toBe(true);
+      expect(Array.isArray(result.players)).toBe(true);
+      expect(mockedAxios.get).toHaveBeenCalledWith(
+        expect.stringContaining('Hans%20M%C3%BCller'),
+        expect.objectContaining({
+          timeout: expect.any(Number),
+          headers: expect.any(Object)
+        })
+      );
+    });
+
+    test('should handle network errors', async () => {
+      mockedAxios.get.mockRejectedValueOnce(new Error('Network error'));
+
+      const result = await dwzSearchService.searchPlayer('Test Player');
+
+      expect(result).toBeDefined();
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Network error');
+    });
+
+    test('should handle timeout errors', async () => {
+      mockedAxios.get.mockRejectedValueOnce({
+        code: 'ECONNABORTED',
+        message: 'timeout of 10000ms exceeded'
+      });
+
+      const result = await dwzSearchService.searchPlayer('Test Player');
+
+      expect(result).toBeDefined();
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('timeout');
+    });
+
+    test('should validate input parameters', async () => {
+      const result1 = await dwzSearchService.searchPlayer('');
+      expect(result1.success).toBe(false);
+      expect(result1.error).toContain('Invalid');
+
+      const result2 = await dwzSearchService.searchPlayer(null);
+      expect(result2.success).toBe(false);
+      expect(result2.error).toContain('Invalid');
+
+      const result3 = await dwzSearchService.searchPlayer('a'); // Too short
+      expect(result3.success).toBe(false);
+      expect(result3.error).toContain('Invalid');
+    });
+
+    test('should sanitize search query', async () => {
+      const mockHtmlResponse = '<table></table>';
+      mockedAxios.get.mockResolvedValueOnce({
+        data: mockHtmlResponse,
+        status: 200
+      });
+
+      await dwzSearchService.searchPlayer('  Hans  Müller  ');
+
+      expect(mockedAxios.get).toHaveBeenCalledWith(
+        expect.stringContaining('Hans%20M%C3%BCller'),
+        expect.any(Object)
+      );
+    });
+  });
+
+  describe('getPlayerDetails', () => {
+    test('should fetch player details successfully', async () => {
+      const mockPlayerHtml = `
+        <div class="player-info">
+          <h1>Hans Müller</h1>
+          <div>DWZ: 1500</div>
+          <div>Verein: SC Berlin</div>
+        </div>
+        <table class="tournaments">
+          <tr>
+            <td>Test Tournament</td>
+            <td>15.01.2024</td>
+            <td>1480</td>
+            <td>1500</td>
+          </tr>
+        </table>
+      `;
+
+      mockedAxios.get.mockResolvedValueOnce({
+        data: mockPlayerHtml,
+        status: 200
+      });
+
+      const result = await dwzSearchService.getPlayerDetails('123');
+
+      expect(result).toBeDefined();
+      expect(result.success).toBe(true);
+      expect(result.player).toHaveProperty('name');
+      expect(result.player).toHaveProperty('dwz');
+      expect(result.player).toHaveProperty('club');
+    });
+
+    test('should handle invalid player ID', async () => {
+      const result1 = await dwzSearchService.getPlayerDetails('');
+      expect(result1.success).toBe(false);
+
+      const result2 = await dwzSearchService.getPlayerDetails(null);
+      expect(result2.success).toBe(false);
+    });
+
+    test('should handle player not found', async () => {
+      mockedAxios.get.mockResolvedValueOnce({
+        data: '<div>Player not found</div>',
+        status: 404
+      });
+
+      const result = await dwzSearchService.getPlayerDetails('nonexistent');
+
+      expect(result).toBeDefined();
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe('HTML parsing', () => {
+    test('should parse search results correctly', async () => {
+      const mockHtml = `
+        <table>
+          <tr>
+            <td><a href="/player/123">Hans Müller</a></td>
+            <td>1500</td>
+            <td>SC Berlin</td>
+          </tr>
+          <tr>
+            <td><a href="/player/456">Anna Schmidt</a></td>
+            <td>1600</td>
+            <td>SC München</td>
+          </tr>
+        </table>
+      `;
+
+      mockedAxios.get.mockResolvedValueOnce({
+        data: mockHtml,
+        status: 200
+      });
+
+      const result = await dwzSearchService.searchPlayer('Müller');
+
+      expect(result.success).toBe(true);
+      expect(Array.isArray(result.players)).toBe(true);
+      expect(result.players.length).toBeGreaterThan(0);
+    });
+
+    test('should handle empty search results', async () => {
+      mockedAxios.get.mockResolvedValueOnce({
+        data: '<table></table>',
+        status: 200
+      });
+
+      const result = await dwzSearchService.searchPlayer('NonexistentPlayer');
+
+      expect(result.success).toBe(true);
+      expect(Array.isArray(result.players)).toBe(true);
+      expect(result.players.length).toBe(0);
+    });
+  });
+
+  describe('Error handling', () => {
+    test('should handle axios network errors gracefully', async () => {
+      mockedAxios.get.mockRejectedValueOnce(new Error('ENOTFOUND'));
+
+      const result = await dwzSearchService.searchPlayer('Test');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBeDefined();
+      expect(result.players).toEqual([]);
+    });
+
+    test('should handle non-200 status codes', async () => {
+      mockedAxios.get.mockResolvedValueOnce({
+        data: 'Server Error',
+        status: 500
+      });
+
+      const result = await dwzSearchService.searchPlayer('Test');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBeDefined();
+    });
+  });
+
+  describe('Input validation', () => {
+    test('should reject empty or null inputs', async () => {
+      const invalidInputs = ['', null, undefined, '   '];
+
+      for (const input of invalidInputs) {
+        const result = await dwzSearchService.searchPlayer(input);
+        expect(result.success).toBe(false);
+        expect(result.error).toContain('Invalid');
+      }
+    });
+
+    test('should reject inputs that are too short', async () => {
+      const result = await dwzSearchService.searchPlayer('a');
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Invalid');
+    });
+  });
+});
+      const result1 = await dwzSearchService.searchPlayer('');
+      expect(result1.success).toBe(false);
+      expect(result1.error).toContain('Invalid');
+
+      const result2 = await dwzSearchService.searchPlayer(null);
+      expect(result2.success).toBe(false);
+      expect(result2.error).toContain('Invalid');
+
+      const result3 = await dwzSearchService.searchPlayer('a'); // Too short
+      expect(result3.success).toBe(false);
+      expect(result3.error).toContain('Invalid');
+    });
+
+    test('should sanitize search query', async () => {
+      const mockHtmlResponse = '<table></table>';
+      mockedAxios.get.mockResolvedValueOnce({
+        data: mockHtmlResponse,
+        status: 200
+      });
+
+      await dwzSearchService.searchPlayer('  Hans  Müller  ');
+
+      expect(mockedAxios.get).toHaveBeenCalledWith(
+        expect.stringContaining('Hans%20M%C3%BCller'),
+        expect.any(Object)
+      );
+    });
+  });
+
+  describe('getPlayerDetails', () => {
+    test('should fetch player details successfully', async () => {
+      const mockPlayerHtml = `
+        <div class="player-info">
+          <h1>Hans Müller</h1>
+          <div>DWZ: 1500</div>
+          <div>Verein: SC Berlin</div>
+        </div>
+        <table class="tournaments">
+          <tr>
+            <td>Test Tournament</td>
+            <td>15.01.2024</td>
+            <td>1480</td>
+            <td>1500</td>
+          </tr>
+        </table>
+      `;
+
+      mockedAxios.get.mockResolvedValueOnce({
+        data: mockPlayerHtml,
+        status: 200
+      });
+
+      const result = await dwzSearchService.getPlayerDetails('123');
+
+      expect(result).toBeDefined();
+      expect(result.success).toBe(true);
+      expect(result.player).toHaveProperty('name');
+      expect(result.player).toHaveProperty('dwz');
+      expect(result.player).toHaveProperty('club');
+      expect(result.player).toHaveProperty('tournaments');
+    });
+
+    test('should handle invalid player ID', async () => {
+      const result1 = await dwzSearchService.getPlayerDetails('');
+      expect(result1.success).toBe(false);
+
+      const result2 = await dwzSearchService.getPlayerDetails(null);
+      expect(result2.success).toBe(false);
+    });
+
+    test('should handle player not found', async () => {
+      mockedAxios.get.mockResolvedValueOnce({
+        data: '<div>Player not found</div>',
+        status: 404
+      });
+
+      const result = await dwzSearchService.getPlayerDetails('nonexistent');
+
+      expect(result).toBeDefined();
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('not found');
+    });
+  });
+
+  describe('parseSearchResults', () => {
+    test('should parse HTML search results correctly', () => {
+      const mockHtml = `
+        <table>
+          <tr>
+            <td><a href="/player/123">Hans Müller</a></td>
+            <td>1500</td>
+            <td>SC Berlin</td>
+          </tr>
+          <tr>
+            <td><a href="/player/456">Anna Schmidt</a></td>
+            <td>1600</td>
+            <td>SC München</td>
+          </tr>
+        </table>
+      `;
+
+      const players = dwzSearchService.parseSearchResults(mockHtml);
+
+      expect(players).toBeArray();
+      expect(players).toHaveLength(2);
+      expect(players[0]).toHaveProperty('name', 'Hans Müller');
+      expect(players[0]).toHaveProperty('dwz', 1500);
+      expect(players[0]).toHaveProperty('club', 'SC Berlin');
+      expect(players[0]).toHaveProperty('id', '123');
+    });
+
+    test('should handle empty results', () => {
+      const mockHtml = '<table></table>';
+      const players = dwzSearchService.parseSearchResults(mockHtml);
+
+      expect(players).toBeArray();
+      expect(players).toHaveLength(0);
+    });
+
+    test('should handle malformed HTML', () => {
+      const mockHtml = '<div>Invalid HTML structure</div>';
+      const players = dwzSearchService.parseSearchResults(mockHtml);
+
+      expect(players).toBeArray();
+      expect(players).toHaveLength(0);
+    });
+  });
+
+  describe('parsePlayerDetails', () => {
+    test('should parse player details correctly', () => {
+      const mockHtml = `
+        <div class="player-info">
+          <h1>Hans Müller</h1>
+          <div>DWZ: 1500</div>
+          <div>Verein: SC Berlin</div>
+        </div>
+        <table class="tournaments">
+          <tr>
+            <td>Test Tournament</td>
+            <td>15.01.2024</td>
+            <td>1480</td>
+            <td>1500</td>
+            <td>1520</td>
+          </tr>
+        </table>
+      `;
+
+      const player = dwzSearchService.parsePlayerDetails(mockHtml);
+
+      expect(player).toHaveProperty('name', 'Hans Müller');
+      expect(player).toHaveProperty('dwz', 1500);
+      expect(player).toHaveProperty('club', 'SC Berlin');
+      expect(player).toHaveProperty('tournaments');
+      expect(player.tournaments).toBeArray();
+      expect(player.tournaments[0]).toHaveProperty('name', 'Test Tournament');
+      expect(player.tournaments[0]).toHaveProperty('date', '15.01.2024');
+    });
+
+    test('should handle missing optional fields', () => {
+      const mockHtml = `
+        <div class="player-info">
+          <h1>Hans Müller</h1>
+        </div>
+      `;
+
+      const player = dwzSearchService.parsePlayerDetails(mockHtml);
+
+      expect(player).toHaveProperty('name', 'Hans Müller');
+      expect(player.dwz).toBeNull();
+      expect(player.club).toBeNull();
+      expect(player.tournaments).toBeArray();
+      expect(player.tournaments).toHaveLength(0);
+    });
+  });
+
+  describe('Error Handling', () => {
+    test('should handle HTTP errors gracefully', async () => {
+      mockedAxios.get.mockRejectedValueOnce({
+        response: {
+          status: 500,
+          statusText: 'Internal Server Error'
+        }
+      });
+
+      const result = await dwzSearchService.searchPlayer('Test Player');
+
+      expect(result).toBeDefined();
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('500');
+    });
+
+    test('should handle rate limiting', async () => {
+      mockedAxios.get.mockRejectedValueOnce({
+        response: {
+          status: 429,
+          statusText: 'Too Many Requests'
+        }
+      });
+
+      const result = await dwzSearchService.searchPlayer('Test Player');
+
+      expect(result).toBeDefined();
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('rate limit');
+    });
+  });
+
+  describe('Performance', () => {
+    test('should complete search within reasonable time', async () => {
+      mockedAxios.get.mockResolvedValueOnce({
+        data: '<table></table>',
+        status: 200
+      });
+
+      const start = Date.now();
+      await dwzSearchService.searchPlayer('Test Player');
+      const duration = Date.now() - start;
+
+      expect(duration).toBeLessThan(1000); // Should complete within 1 second
+    });
+
+    test('should handle concurrent searches', async () => {
+      mockedAxios.get.mockResolvedValue({
+        data: '<table></table>',
+        status: 200
+      });
+
+      const searches = Array(5).fill().map((_, i) => 
+        dwzSearchService.searchPlayer(`Player ${i}`)
+      );
+
+      const results = await Promise.all(searches);
+
+      expect(results).toHaveLength(5);
+      results.forEach(result => {
+        expect(result.success).toBe(true);
+      });
+    });
+  });
+
+  describe('Caching', () => {
+    test('should implement basic caching', async () => {
+      mockedAxios.get.mockResolvedValueOnce({
+        data: '<table></table>',
+        status: 200
+      });
+
+      // First call
+      await dwzSearchService.searchPlayer('Test Player');
+      
+      // Second call with same query
+      await dwzSearchService.searchPlayer('Test Player');
+
+      // Should only make one HTTP request due to caching
+      expect(mockedAxios.get).toHaveBeenCalledTimes(1);
+    });
+  });
+});

@@ -53,3 +53,18 @@ Thumbs.db
 
 # temp files
 temp/
+
+# Backup files - NEVER COMMIT THESE
+*.bak
+*.backup
+*.old
+*.orig
+*.tmp
+*~
+.#*
+\#*#
+
+# Agent working files
+.agent-*
+!.agent-rules.md
+!.agent-quick-ref.md
