@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
+const { logger } = require('./logger');
 
 class ConfigManager {
     constructor() {
@@ -20,9 +21,9 @@ class ConfigManager {
             const configFile = fs.readFileSync(configPath, 'utf8');
             this.config = yaml.load(configFile);
             this.currentLanguage = this.config.language?.default || 'de';
-            console.log('✅ Configuration loaded successfully');
+            logger.info('Configuration loaded successfully');
         } catch (error) {
-            console.error('❌ Error loading configuration:', error.message);
+            logger.error('Error loading configuration', error.message);
             // Use default configuration
             this.config = this.getDefaultConfig();
         }
@@ -43,9 +44,9 @@ class ConfigManager {
                 this.translations[lang] = yaml.load(translationData);
             }
             
-            console.log(`✅ Loaded translations for languages: ${Object.keys(this.translations).join(', ')}`);
+            logger.info(`Loaded translations for languages: ${Object.keys(this.translations).join(', ')}`);
         } catch (error) {
-            console.error('❌ Error loading translations:', error.message);
+            logger.error('Error loading translations', error.message);
             // Use fallback translations
             this.translations = { de: {}, en: {} };
         }
@@ -93,7 +94,7 @@ class ConfigManager {
         
         // If still not found, return the key itself
         if (!translation) {
-            console.warn(`⚠️ Translation not found: ${key} (${lang})`);
+            logger.warn(`Translation not found: ${key} (${lang})`);
             return key;
         }
         
@@ -145,9 +146,9 @@ class ConfigManager {
     setLanguage(language) {
         if (this.translations[language]) {
             this.currentLanguage = language;
-            console.log(`🌐 Language changed to: ${language}`);
+            logger.info(`Language changed to: ${language}`);
         } else {
-            console.warn(`⚠️ Language not available: ${language}`);
+            logger.warn(`Language not available: ${language}`);
         }
     }
 
@@ -163,7 +164,7 @@ class ConfigManager {
      * Reload configuration and translations
      */
     reload() {
-        console.log('🔄 Reloading configuration and translations...');
+        logger.info('Reloading configuration and translations...');
         this.loadConfig();
         this.loadTranslations();
     }
@@ -249,6 +250,32 @@ class ConfigManager {
     getColor(type) {
         const colorHex = this.get(`display.colors.${type}`, '0099FF');
         return parseInt(colorHex, 16);
+    }
+
+    /**
+     * Get the bot configuration section
+     * @returns {Object} Bot configuration
+     */
+    getBotConfig() {
+        return this.config.bot || {};
+    }
+
+    /**
+     * Get translation for a given key and optional language
+     * @param {string} key - Translation key
+     * @param {string} [language] - Language code
+     * @returns {string} Translated text or key fallback
+     */
+    getTranslation(key, language) {
+        return this.t(key, {}, language);
+    }
+
+    /**
+     * Get the default language code
+     * @returns {string}
+     */
+    getDefaultLanguage() {
+        return this.config.language?.default || 'de';
     }
 }
 

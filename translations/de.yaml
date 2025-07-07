@@ -4,19 +4,8 @@
 # Command descriptions
 commands:
   dwz:
-    name# Error messages
-errors:
-  title: "❌ DWZ-Suchfehler"
-  generic: "Entschuldigung, es gab einen Fehler bei der Spielersuche."
-  unknown: "Unbekannter Fehler aufgetreten"
-  
-  # Required error keys for tests
-  general_error: "Ein allgemeiner Fehler ist bei der Verarbeitung Ihrer Anfrage aufgetreten"
-  network_error: "Netzwerkverbindung fehlgeschlagen. Bitte überprüfen Sie Ihre Internetverbindung"
-  search_failed: "Suchvorgang fehlgeschlagen. Bitte versuchen Sie es später erneut"
-  invalid_input: "Ungültige Eingabe bereitgestellt. Bitte überprüfen Sie Ihre Suchparameter"
-  rate_limited: "Zu viele Anfragen. Bitte warten Sie einen Moment, bevor Sie es erneut versuchen"z"
-    description: "Suche nach der DWZ-Wertung eines Schachspielers vom Deutschen Schachbund"
+    name: "dwz"
+    description: "Suche nach einer Schachspielers DWZ-Wertung beim Deutschen Schachbund"
     options:
       name:
         name: "name"

@@ -6,6 +6,7 @@
 const { EmbedBuilder } = require('discord.js');
 const { EMBED_COLORS, EXTERNAL_URLS, LIMITS, ERROR_MESSAGES } = require('../constants');
 const config = require('../utils/config');
+const { logger } = require('../utils/logger');
 
 class EmbedService {
     /**
@@ -293,15 +294,11 @@ class EmbedService {
      * @returns {Promise<Object|null>} Chart attachment or null
      */
     async _generateChartIfPossible(player) {
-        if (!player.tournaments || player.tournaments.length < 2) {
-            return null;
-        }
-
         try {
             const { generateDWZChart } = require('../utils/chartGenerator');
             return await generateDWZChart(player.tournaments, player.name);
         } catch (error) {
-            console.error('Failed to generate chart:', error);
+            logger.error('Failed to generate chart', error);
             return null;
         }
     }

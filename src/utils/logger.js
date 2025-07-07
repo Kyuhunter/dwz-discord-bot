@@ -56,7 +56,7 @@ class Logger {
      * @param {string} message - Error message
      * @param {any} data - Additional error data
      */
-    error(message, data = null) {
+    error(message, data = {}) {
         if (this.level >= LOG_LEVELS.ERROR) {
             console.error(this.formatMessage('ERROR', message, data));
         }
@@ -67,7 +67,7 @@ class Logger {
      * @param {string} message - Warning message
      * @param {any} data - Additional warning data
      */
-    warn(message, data = null) {
+    warn(message, data = {}) {
         if (this.level >= LOG_LEVELS.WARN) {
             console.warn(this.formatMessage('WARN', message, data));
         }
@@ -78,7 +78,7 @@ class Logger {
      * @param {string} message - Info message
      * @param {any} data - Additional info data
      */
-    info(message, data = null) {
+    info(message, data = {}) {
         if (this.level >= LOG_LEVELS.INFO) {
             console.info(this.formatMessage('INFO', message, data));
         }
@@ -89,7 +89,7 @@ class Logger {
      * @param {string} message - Debug message
      * @param {any} data - Additional debug data
      */
-    debug(message, data = null) {
+    debug(message, data = {}) {
         if (this.level >= LOG_LEVELS.DEBUG) {
             console.debug(this.formatMessage('DEBUG', message, data));
         }

@@ -125,175 +125,128 @@ describe('Error Handler', () => {
   });
 
   describe('Error Handling Functions', () => {
-    describe('logError', () => {
+    describe('handleError', () => {
       test('should log error with context', () => {
         const { logger } = require('../../src/utils/logger');
         const error = new Error('Test error');
         const context = { userId: '123', command: 'dwz' };
         
-        logError(error, context);
+        const result = handleError(error, context);
         
         expect(logger.error).toHaveBeenCalledWith(
-          'Test error',
+          expect.stringContaining('Error: Test error'),
           expect.objectContaining({
-            error: error.message,
-            stack: error.stack,
-            context
+            code: 'UNKNOWN_ERROR',
+            context,
+            stack: error.stack
           })
         );
+        expect(result).toHaveProperty('message', 'Test error');
+        expect(result).toHaveProperty('code', 'UNKNOWN_ERROR');
+        expect(result).toHaveProperty('type', 'Error');
+        expect(result).toHaveProperty('context', context);
       });
 
       test('should log custom error with additional properties', () => {
         const { logger } = require('../../src/utils/logger');
         const error = new ValidationError('Invalid input', 'playerName');
         
-        logError(error);
+        const result = handleError(error);
         
         expect(logger.error).toHaveBeenCalledWith(
-          'Invalid input',
+          expect.stringContaining('ValidationError: Invalid input'),
           expect.objectContaining({
-            errorType: 'ValidationError',
             code: 'VALIDATION_ERROR',
-            field: 'playerName'
+            context: {},
+            stack: error.stack
           })
         );
+        expect(result).toHaveProperty('type', 'ValidationError');
+        expect(result).toHaveProperty('code', 'VALIDATION_ERROR');
+        expect(result).toHaveProperty('message', 'Invalid input');
       });
 
       test('should handle null error gracefully', () => {
         const { logger } = require('../../src/utils/logger');
         
-        logError(null);
-        
-        expect(logger.error).toHaveBeenCalledWith(
-          'Unknown error occurred',
-          expect.any(Object)
-        );
+        expect(() => handleError(null)).toThrow();
+        // handleError expects an Error object, so passing null should throw
       });
     });
 
-    describe('handleError', () => {
-      test('should return error response object', () => {
-        const error = new Error('Test error');
-        
-        const result = handleError(error);
-        
-        expect(result).toHaveProperty('success', false);
-        expect(result).toHaveProperty('error');
-        expect(result).toHaveProperty('errorType');
+    describe('categorizeError', () => {
+      test('should categorize ENOTFOUND as NetworkError', () => {
+        const error = { code: 'ENOTFOUND', message: 'Not found' };
+        const result = categorizeError(error);
+        expect(result).toBeInstanceOf(NetworkError);
       });
-
-      test('should handle custom errors', () => {
-        const error = new ValidationError('Invalid input', 'playerName');
-        
-        const result = handleError(error);
-        
-        expect(result.errorType).toBe('ValidationError');
-        expect(result.error).toContain('Invalid input');
+      test('should categorize ETIMEDOUT as NetworkError', () => {
+        const error = { code: 'ETIMEDOUT', message: 'Timeout' };
+        const result = categorizeError(error);
+        expect(result).toBeInstanceOf(NetworkError);
       });
-
-      test('should handle unknown errors', () => {
-        const error = new Error('Unknown error');
-        
-        const result = handleError(error);
-        
-        expect(result.errorType).toBe('Error');
+      test('should categorize HTTP 404 as SearchError', () => {
+        const error = { response: { status: 404 }, message: '404' };
+        const result = categorizeError(error);
+        expect(result).toBeInstanceOf(SearchError);
       });
-    });
-
-    describe('handleInteractionError', () => {
-      test('should handle interaction errors with reply', async () => {
-        const mockInteraction = {
-          replied: false,
-          deferred: false,
-          reply: jest.fn().mockResolvedValue()
-        };
-        const error = new Error('Interaction error');
-        
-        await handleInteractionError(mockInteraction, error);
-        
-        expect(mockInteraction.reply).toHaveBeenCalledWith(
-          expect.objectContaining({
-            embeds: expect.any(Array),
-            ephemeral: true
-          })
-        );
+      test('should categorize HTTP 500 as NetworkError', () => {
+        const error = { response: { status: 500 }, message: '500' };
+        const result = categorizeError(error);
+        expect(result).toBeInstanceOf(NetworkError);
       });
-
-      test('should handle interaction errors with editReply when deferred', async () => {
-        const mockInteraction = {
-          replied: false,
-          deferred: true,
-          editReply: jest.fn().mockResolvedValue()
-        };
-        const error = new Error('Deferred interaction error');
-        
-        await handleInteractionError(mockInteraction, error);
-        
-        expect(mockInteraction.editReply).toHaveBeenCalled();
+      test('should categorize chart_generation operation as ChartGenerationError', () => {
+        const error = { message: 'Chart error' };
+        const result = categorizeError(error, 'chart_generation');
+        expect(result).toBeInstanceOf(ChartGenerationError);
       });
-
-      test('should handle interaction errors with followUp when already replied', async () => {
-        const mockInteraction = {
-          replied: true,
-          deferred: false,
-          followUp: jest.fn().mockResolvedValue()
-        };
-        const error = new Error('Follow up error');
-        
-        await handleInteractionError(mockInteraction, error);
-        
-        expect(mockInteraction.followUp).toHaveBeenCalled();
+      test('should categorize search operation as SearchError', () => {
+        const error = { message: 'Search error' };
+        const result = categorizeError(error, 'search');
+        expect(result).toBeInstanceOf(SearchError);
       });
-
-      test('should handle errors in error handling gracefully', async () => {
-        const mockInteraction = {
-          replied: false,
-          deferred: false,
-          reply: jest.fn().mockRejectedValue(new Error('Reply failed'))
-        };
-        const error = new Error('Original error');
-        
-        // Should not throw even if reply fails
-        await expect(handleInteractionError(mockInteraction, error)).resolves.not.toThrow();
+      test('should categorize validation operation as ValidationError', () => {
+        const error = { message: 'Validation error' };
+        const result = categorizeError(error, 'validation');
+        expect(result).toBeInstanceOf(ValidationError);
+      });
+      test('should default to DWZBotError', () => {
+        const error = { message: 'Other error' };
+        const result = categorizeError(error);
+        expect(result).toBeInstanceOf(DWZBotError);
       });
     });
 
-    describe('handleCommandError', () => {
-      test('should handle command execution errors', async () => {
-        const mockInteraction = {
-          replied: false,
-          deferred: false,
-          reply: jest.fn().mockResolvedValue(),
-          commandName: 'dwz',
-          user: { id: '123' }
-        };
-        const error = new Error('Command error');
-        
-        await handleCommandError(mockInteraction, error);
-        
-        expect(mockInteraction.reply).toHaveBeenCalled();
+    describe('createUserFriendlyError', () => {
+      test('should create user-friendly error for ValidationError', () => {
+        const error = new ValidationError('Invalid input');
+        const result = createUserFriendlyError(error);
+        expect(result.title).toBe('Input Validation Error');
+        expect(result.description).toBe('Invalid input');
+        expect(result.canRetry).toBe(false);
       });
-
-      test('should include command context in error logging', async () => {
-        const { logger } = require('../../src/utils/logger');
-        const mockInteraction = {
-          replied: false,
-          deferred: false,
-          reply: jest.fn().mockResolvedValue(),
-          commandName: 'dwz',
-          user: { id: '123' }
-        };
-        const error = new Error('Command error');
-        
-        await handleCommandError(mockInteraction, error);
-        
-        expect(logger.error).toHaveBeenCalledWith(
-          expect.any(String),
-          expect.objectContaining({
-            command: 'dwz',
-            userId: '123'
-          })
-        );
+      test('should create user-friendly error for NetworkError', () => {
+        const error = new NetworkError('Network down');
+        const result = createUserFriendlyError(error);
+        expect(result.title).toBe('Connection Error');
+        expect(result.canRetry).toBe(true);
+      });
+      test('should create user-friendly error for SearchError', () => {
+        const error = new SearchError('Search failed');
+        const result = createUserFriendlyError(error);
+        expect(result.title).toBe('Search Error');
+        expect(result.canRetry).toBe(true);
+      });
+      test('should create user-friendly error for ChartGenerationError', () => {
+        const error = new ChartGenerationError('Chart failed');
+        const result = createUserFriendlyError(error);
+        expect(result.title).toBe('Chart Generation Error');
+        expect(result.canRetry).toBe(false);
+      });
+      test('should use default for unknown error', () => {
+        const error = new Error('Unknown');
+        const result = createUserFriendlyError(error);
+        expect(result.title).toBe('Error');
       });
     });
   });

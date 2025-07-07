@@ -3,6 +3,7 @@ require('dotenv').config();
 
 const fs = require('fs');
 const path = require('path');
+const { logger } = require('./utils/logger');
 
 // Load all commands
 const commands = [];
@@ -15,9 +16,9 @@ for (const file of commandFiles) {
     
     if ('data' in command && 'execute' in command) {
         commands.push(command.data.toJSON());
-        console.log(`Loaded command: ${command.data.name}`);
+        logger.info(`Loaded command: ${command.data.name}`);
     } else {
-        console.log(`Warning: Command at ${filePath} is missing required "data" or "execute" property.`);
+        logger.warn(`Command at ${filePath} missing required "data" or "execute" property.`);
     }
 }
 
@@ -29,7 +30,7 @@ async function getClientInfo() {
         tempClient.once('ready', async () => {
             try {
                 const clientId = tempClient.user.id;
-                console.log(`✅ Retrieved Client ID: ${clientId}`);
+                logger.info(`Retrieved Client ID: ${clientId}`);
                 
                 // Get guild ID from environment or detect from bot's guilds
                 let guildId = process.env.GUILD_ID;
@@ -38,7 +39,7 @@ async function getClientInfo() {
                     // Use the first guild the bot is in for testing
                     const firstGuild = tempClient.guilds.cache.first();
                     guildId = firstGuild.id;
-                    console.log(`🔍 Auto-detected Guild ID: ${guildId} (${firstGuild.name})`);
+                    logger.info(`Auto-detected Guild ID: ${guildId} (${firstGuild.name})`);
                 }
                 
                 await tempClient.destroy();
@@ -60,48 +61,46 @@ async function getClientInfo() {
 
 (async () => {
     try {
-        console.log(`📦 Loaded ${commands.length} application (/) commands.`);
-        console.log('🔐 Getting bot information...');
+        logger.info(`Loaded ${commands.length} application commands.`);
+        logger.info('Getting bot information...');
         
         const { clientId, guildId } = await getClientInfo();
         
         // Create REST instance and deploy commands
         const rest = new REST().setToken(process.env.DISCORD_TOKEN);
         
-        console.log(`🚀 Started refreshing ${commands.length} application (/) commands.`);
+        logger.info(`Started refreshing ${commands.length} application commands.`);
 
         // Choose deployment method based on guild availability
         if (guildId) {
             // Deploy to specific guild (for testing/faster deployment)
-            console.log(`🏠 Deploying commands to guild: ${guildId} (development mode)`);
+            logger.info(`Deploying commands to guild: ${guildId} (dev mode)`);
             const data = await rest.put(
                 Routes.applicationGuildCommands(clientId, guildId),
                 { body: commands },
             );
-            console.log(`✅ Successfully reloaded ${data.length} guild application (/) commands.`);
-            console.log(`ℹ️  Commands will be available immediately in the specified guild.`);
+            logger.info(`Successfully reloaded ${data.length} guild commands.`);
+            logger.info('Commands available immediately in guild.');
         } else {
             // Deploy globally (for production)
-            console.log('🌍 Deploying commands globally (production mode)');
+            logger.info('Deploying commands globally (production mode)');
             const data = await rest.put(
                 Routes.applicationCommands(clientId),
                 { body: commands },
             );
-            console.log(`✅ Successfully reloaded ${data.length} global application (/) commands.`);
-            console.log(`ℹ️  Global commands may take up to 1 hour to be available everywhere.`);
+            logger.info(`Successfully reloaded ${data.length} global commands.`);
+            logger.info('Global commands may take up to 1 hour to propagate.');
         }
 
     } catch (error) {
-        console.error('❌ Error deploying commands:', error);
-        
+        logger.error('Error deploying commands', error);
         if (error.code === 'TokenInvalid') {
-            console.error('🔑 Invalid bot token. Please check your DISCORD_TOKEN in .env file.');
+            logger.error('Invalid bot token. Check DISCORD_TOKEN in .env');
         } else if (error.code === 50001) {
-            console.error('🚫 Bot lacks permission to create application commands.');
+            logger.error('Bot lacks permission to create application commands.');
         } else if (error.rawError?.message?.includes('Cannot send messages to this user')) {
-            console.error('💬 Bot cannot send messages. Check bot permissions.');
+            logger.error('Bot cannot send messages. Check permissions.');
         }
-        
         process.exit(1);
     }
 })();

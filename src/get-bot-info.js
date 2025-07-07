@@ -1,14 +1,15 @@
 const { Client, GatewayIntentBits } = require('discord.js');
 require('dotenv').config();
+const { logger } = require('./utils/logger');
 
 async function getBotInfo() {
-    console.log('🤖 Discord Bot Information Retriever');
-    console.log('====================================');
+    logger.info('Discord Bot Information Retriever');
+    logger.info('==============================');
     
     if (!process.env.DISCORD_TOKEN) {
-        console.error('❌ DISCORD_TOKEN not found in .env file');
-        console.log('Please add your bot token to the .env file:');
-        console.log('DISCORD_TOKEN=your_bot_token_here');
+        logger.error('DISCORD_TOKEN not found in .env file');
+        logger.info('Please add your bot token to the .env file:');
+        logger.info('DISCORD_TOKEN=your_bot_token_here');
         process.exit(1);
     }
     
@@ -20,44 +21,44 @@ async function getBotInfo() {
     });
     
     client.once('ready', () => {
-        console.log(`✅ Bot logged in as: ${client.user.tag}`);
-        console.log(`🆔 Client ID: ${client.user.id}`);
-        console.log(`📅 Bot created: ${client.user.createdAt.toDateString()}`);
-        console.log('');
+        logger.info(`Bot logged in as: ${client.user.tag}`);
+        logger.info(`Client ID: ${client.user.id}`);
+        logger.info(`Bot created: ${client.user.createdAt.toDateString()}`);
+        logger.info('');
         
         if (client.guilds.cache.size === 0) {
-            console.log('⚠️  Bot is not in any servers yet.');
-            console.log('🔗 Invite your bot using this URL:');
-            console.log(`https://discord.com/api/oauth2/authorize?client_id=${client.user.id}&permissions=274877906944&scope=bot%20applications.commands`);
+            logger.warn('Bot is not in any servers yet.');
+            logger.info('Invite your bot using this URL:');
+            logger.info(`https://discord.com/api/oauth2/authorize?client_id=${client.user.id}&permissions=274877906944&scope=bot%20applications.commands`);
         } else {
-            console.log(`🏠 Bot is in ${client.guilds.cache.size} server(s):`);
-            console.log('');
+            logger.info(`Bot is in ${client.guilds.cache.size} server(s):`);
+            logger.info('');
             
             client.guilds.cache.forEach((guild, index) => {
-                console.log(`${index + 1}. ${guild.name}`);
-                console.log(`   Guild ID: ${guild.id}`);
-                console.log(`   Members: ${guild.memberCount}`);
-                console.log(`   Owner: ${guild.ownerId}`);
-                console.log('');
+                logger.info(`${index + 1}. ${guild.name}`);
+                logger.info(`   Guild ID: ${guild.id}`);
+                logger.info(`   Members: ${guild.memberCount}`);
+                logger.info(`   Owner: ${guild.ownerId}`);
+                logger.info('');
             });
             
             if (client.guilds.cache.size === 1) {
                 const guild = client.guilds.cache.first();
-                console.log('💡 For testing, you can use this Guild ID in your .env file:');
-                console.log(`GUILD_ID=${guild.id}`);
+                logger.info('For testing, you can use this Guild ID in your .env file:');
+                logger.info(`GUILD_ID=${guild.id}`);
             } else {
-                console.log('💡 Choose a Guild ID from above for testing, or leave GUILD_ID empty for global deployment');
+                logger.info('Choose a Guild ID from above for testing, or leave GUILD_ID empty for global deployment');
             }
         }
         
-        console.log('');
-        console.log('📝 Your .env file should look like this:');
-        console.log(`DISCORD_TOKEN=${process.env.DISCORD_TOKEN}`);
-        console.log(`CLIENT_ID=${client.user.id}`);
+        logger.info('');
+        logger.info('Your .env file should look like this:');
+        logger.info(`DISCORD_TOKEN=${process.env.DISCORD_TOKEN}`);
+        logger.info(`CLIENT_ID=${client.user.id}`);
         if (client.guilds.cache.size > 0) {
-            console.log(`GUILD_ID=${client.guilds.cache.first().id}  # Optional: for faster testing`);
+            logger.info(`GUILD_ID=${client.guilds.cache.first().id}  # Optional: for faster testing`);
         } else {
-            console.log('GUILD_ID=  # Optional: add after inviting bot to a server');
+            logger.info('GUILD_ID=  # Optional: add after inviting bot to a server');
         }
         
         client.destroy();
@@ -65,10 +66,10 @@ async function getBotInfo() {
     });
     
     client.on('error', (error) => {
-        console.error('❌ Error connecting to Discord:', error.message);
+        logger.error('Error connecting to Discord:', error.message);
         
         if (error.code === 'TokenInvalid') {
-            console.error('🔑 Invalid bot token. Please check your DISCORD_TOKEN in .env file.');
+            logger.error('Invalid bot token. Please check your DISCORD_TOKEN in .env file.');
         }
         
         process.exit(1);
@@ -77,7 +78,7 @@ async function getBotInfo() {
     try {
         await client.login(process.env.DISCORD_TOKEN);
     } catch (error) {
-        console.error('❌ Failed to login:', error.message);
+        logger.error('Failed to login:', error.message);
         process.exit(1);
     }
 }
