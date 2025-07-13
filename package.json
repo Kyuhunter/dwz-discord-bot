@@ -16,6 +16,7 @@
     "test:integration": "jest tests/integration",
     "test:commands": "jest tests/commands",
     "test:ci": "jest --coverage --watchAll=false --ci",
+    "test:dwz": "node test-dwz-integration.js",
     "lint": "echo 'Linting not configured yet'",
     "validate": "npm run test:ci && npm run lint"
   },

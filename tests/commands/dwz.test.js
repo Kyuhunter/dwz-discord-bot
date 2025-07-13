@@ -5,7 +5,7 @@
 const path = require('path');
 
 // Mock all the dependencies before requiring the command
-jest.mock('../../src/services/dwzSearchService', () => {
+jest.mock('../../src/services/dwzInfoService', () => {
   return jest.fn().mockImplementation(() => ({
     searchPlayer: jest.fn()
   }));
@@ -154,8 +154,8 @@ describe('DWZ Command', () => {
       mockInteraction.options.getString.mockReturnValue('Test Player');
       
       // Mock the constructor to throw an error
-      const DWZSearchService = require('../../src/services/dwzSearchService');
-      DWZSearchService.mockImplementation(() => {
+      const DWZInfoService = require('../../src/services/dwzInfoService');
+      DWZInfoService.mockImplementation(() => {
         throw new Error('Service initialization failed');
       });
 
@@ -173,8 +173,8 @@ describe('DWZ Command', () => {
       await dwzCommand.execute(mockInteraction);
 
       // The command should create service instances
-      const DWZSearchService = require('../../src/services/dwzSearchService');
-      expect(DWZSearchService).toHaveBeenCalled();
+      const DWZInfoService = require('../../src/services/dwzInfoService');
+      expect(DWZInfoService).toHaveBeenCalled();
     });
 
     test('should interact with embed service', async () => {

@@ -125,7 +125,7 @@ dwz-discord-bot/
 │   ├── helpers/            # Helper utilities
 │   │   └── errorHandler.js
 │   ├── services/           # Business logic services
-│   │   ├── dwzSearchService.js
+│   │   ├── dwzInfoService.js
 │   │   └── embedService.js
 │   ├── utils/              # Utility functions
 │   │   ├── chartGenerator.js

@@ -6,13 +6,13 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { logger } = require('../utils/logger');
 const { validatePlayerName, validateClubName } = require('../validators');
-const DWZSearchService = require('../services/dwzSearchService');
+const DWZInfoService = require('../services/dwzInfoService');
 const EmbedService = require('../services/embedService');
 const { ERROR_MESSAGES } = require('../constants');
 
 class DWZCommand {
     constructor() {
-        this.searchService = new DWZSearchService();
+        this.searchService = new DWZInfoService();
         this.embedService = new EmbedService();
         
         this.data = new SlashCommandBuilder()
@@ -61,8 +61,11 @@ class DWZCommand {
                 validationResult.clubName
             );
 
+            // Add disambiguation info for duplicate names
+            const processedResults = this.searchService.addDisambiguationInfo(searchResults);
+
             // Process results
-            await this._handleSearchResults(interaction, searchResults, playerName, clubName);
+            await this._handleSearchResults(interaction, processedResults, playerName, clubName);
 
         } catch (error) {
             logger.error('DWZ command execution failed', {
@@ -146,17 +149,20 @@ class DWZCommand {
      */
     async _handleSingleResult(interaction, player) {
         try {
-            // Get detailed player information
-            const playerDetails = await this.searchService.getPlayerDetails(player.zpk);
+            // Get detailed player information using the new service
+            let playerDetails;
+            if (player.zpk) {
+                playerDetails = await this.searchService.getPlayerDetails(player.zpk);
+            } else {
+                // If no ZPK, use the basic player info we already have
+                playerDetails = {
+                    ...player,
+                    tournaments: []
+                };
+            }
             
-            // Merge basic info with detailed info
-            const fullPlayerInfo = {
-                ...player,
-                tournaments: playerDetails.tournaments || []
-            };
-
             // Create detailed embed with chart if possible
-            const result = await this.embedService.createPlayerDetailsEmbed(fullPlayerInfo);
+            const result = await this.embedService.createPlayerDetailsEmbed(playerDetails);
             await interaction.editReply(result);
 
         } catch (error) {
@@ -203,10 +209,34 @@ class DWZCommand {
             });
         }
 
+        if (player.fide_rating) {
+            fields.push({
+                name: '🌍 FIDE',
+                value: player.fide_rating,
+                inline: true
+            });
+        }
+
+        if (player.fide_title) {
+            fields.push({
+                name: '👑 Titel',
+                value: player.fide_title,
+                inline: true
+            });
+        }
+
         if (player.club) {
             fields.push({
                 name: '🏛️ Verein',
                 value: player.club,
+                inline: true
+            });
+        }
+
+        if (player.nationality) {
+            fields.push({
+                name: '🏳️ Nation',
+                value: player.nationality,
                 inline: true
             });
         }

@@ -67,7 +67,7 @@ class EmbedService {
     createInfoEmbed(title, description, options = {}) {
         const embed = new EmbedBuilder()
             .setColor(EMBED_COLORS.INFO)
-            .setTitle(`ℹ️ ${title}`)
+            .setTitle(title)
             .setDescription(description);
 
         if (options.fields) {
@@ -249,10 +249,34 @@ class EmbedService {
             });
         }
 
+        if (player.fide_rating) {
+            embed.addFields({
+                name: '🌍 FIDE Wertung',
+                value: player.fide_rating.toString(),
+                inline: true
+            });
+        }
+
+        if (player.fide_title) {
+            embed.addFields({
+                name: '👑 FIDE Titel',
+                value: player.fide_title,
+                inline: true
+            });
+        }
+
         if (player.club) {
             embed.addFields({
                 name: '🏛️ Verein',
                 value: player.club,
+                inline: true
+            });
+        }
+
+        if (player.nationality) {
+            embed.addFields({
+                name: '🏳️ Nationalität',
+                value: player.nationality,
                 inline: true
             });
         }
@@ -279,10 +303,49 @@ class EmbedService {
 
         if (validTournaments.length === 0) return;
 
+        // Calculate additional statistics
+        const dwzValues = validTournaments.map(t => parseInt(t.dwzneu));
+        const maxDwz = Math.max(...dwzValues);
+        const minDwz = Math.min(...dwzValues);
+        const currentDwz = dwzValues[dwzValues.length - 1];
+        
+        // Calculate total games and points
+        let totalGames = 0;
+        let totalPoints = 0;
+        validTournaments.forEach(t => {
+            if (t.partien && !isNaN(parseFloat(t.partien))) {
+                totalGames += parseInt(t.partien);
+            }
+            if (t.punkte && !isNaN(parseFloat(t.punkte))) {
+                totalPoints += parseFloat(t.punkte);
+            }
+        });
+
+        let statsText = `**Turniere gespielt:** ${validTournaments.length}\n`;
+        statsText += `**Aktuelle DWZ:** ${currentDwz}`;
+        
+        if (maxDwz !== minDwz) {
+            statsText += `\n**Höchste DWZ:** ${maxDwz}`;
+            statsText += `\n**Niedrigste DWZ:** ${minDwz}`;
+        }
+        
+        if (totalGames > 0) {
+            statsText += `\n**Partien gesamt:** ${totalGames}`;
+            if (totalPoints > 0) {
+                const percentage = ((totalPoints / totalGames) * 100).toFixed(1);
+                statsText += `\n**Punkte gesamt:** ${totalPoints} (${percentage}%)`;
+            }
+        }
+
+        // Add performance rating from latest tournament if available
+        const latestTournament = validTournaments[validTournaments.length - 1];
+        if (latestTournament.leistung && latestTournament.leistung !== '0') {
+            statsText += `\n**Letzte Leistung:** ${latestTournament.leistung}`;
+        }
+
         embed.addFields({
             name: '📊 Turnierstatistiken',
-            value: `**Anzahl Turniere:** ${validTournaments.length}\n` +
-                   `**Neueste DWZ:** ${validTournaments[validTournaments.length - 1].dwzneu}`,
+            value: statsText,
             inline: false
         });
     }

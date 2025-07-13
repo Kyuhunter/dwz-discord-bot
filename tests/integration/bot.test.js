@@ -12,7 +12,7 @@ describe('Bot Integration', () => {
         'src/constants/index.js',
         'src/validators/index.js',
         'src/utils/logger.js',
-        'src/services/dwzSearchService.js',
+        'src/services/dwzInfoService.js',
         'src/services/embedService.js',
         'src/commands/dwz.js'
       ];
@@ -41,7 +41,7 @@ describe('Bot Integration', () => {
         'tests/unit/constants.test.js',
         'tests/unit/validators.test.js',
         'tests/unit/logger.test.js',
-        'tests/unit/dwzSearchService.test.js'
+        'tests/unit/dwzInfoService.test.js'
       ];
 
       testFiles.forEach(filePath => {
@@ -74,13 +74,13 @@ describe('Bot Integration', () => {
       expect(typeof logger.error).toBe('function');
     });
 
-    test('should load DWZ search service', () => {
-      const DWZSearchService = require('../../src/services/dwzSearchService');
-      expect(DWZSearchService).toBeDefined();
-      expect(typeof DWZSearchService).toBe('function');
+    test('should load DWZ info service', () => {
+      const DWZInfoService = require('../../src/services/dwzInfoService');
+      expect(DWZInfoService).toBeDefined();
+      expect(typeof DWZInfoService).toBe('function');
       
       // Should be able to instantiate
-      const service = new DWZSearchService();
+      const service = new DWZInfoService();
       expect(service).toBeDefined();
     });
 
@@ -205,7 +205,7 @@ describe('Bot Integration', () => {
         'tests/unit/constants.test.js',
         'tests/unit/validators.test.js',
         'tests/unit/logger.test.js',
-        'tests/unit/dwzSearchService.test.js',
+        'tests/unit/dwzInfoService.test.js',
         'tests/unit/embedService.test.js',
         'tests/unit/config.test.js'
       ];
