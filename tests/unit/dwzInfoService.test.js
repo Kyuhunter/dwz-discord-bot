@@ -218,4 +218,63 @@ describe('DWZInfoService', () => {
       }));
     });
   });
+
+  describe('Edge cases and error handling', () => {
+    test('should handle malformed JSON from Python script', async () => {
+      const mockProcess = createMockProcess();
+      spawn.mockReturnValue(mockProcess);
+
+      // Start the service call and let it set up handlers first
+      const promise = dwzInfoService.searchPlayers('Test');
+      
+      // Wait a tick for the service to set up event handlers
+      await new Promise(resolve => setImmediate(resolve));
+      
+      // Simulate malformed JSON
+      const stdoutCall = mockProcess.stdout.on.mock.calls.find(call => call[0] === 'data');
+      const closeCall = mockProcess.on.mock.calls.find(call => call[0] === 'close');
+      if (!stdoutCall || !closeCall) throw new Error('Mock callback not found');
+      
+      stdoutCall[1]('not a json');
+      closeCall[1](1);
+
+      await expect(promise).rejects.toThrow(/Unexpected token|JSON/);
+    });
+
+    test('should handle Python process error event', async () => {
+      const mockProcess = createMockProcess();
+      spawn.mockReturnValue(mockProcess);
+
+      // Start the service call and let it set up handlers first
+      const promise = dwzInfoService.searchPlayers('Test');
+      
+      // Wait a tick for the service to set up event handlers
+      await new Promise(resolve => setImmediate(resolve));
+      
+      // Simulate error event
+      const errorCall = mockProcess.stderr.on.mock.calls.find(call => call[0] === 'data');
+      const closeCall = mockProcess.on.mock.calls.find(call => call[0] === 'close');
+      if (!errorCall || !closeCall) throw new Error('Mock callback not found');
+      
+      errorCall[1]('Python error');
+      closeCall[1](1);
+
+      await expect(promise).rejects.toThrow(/Python error/);
+    });
+
+    test('should handle process timeout', async () => {
+      const mockProcess = createMockProcess();
+      spawn.mockReturnValue(mockProcess);
+
+      // Simulate timeout by not calling close
+      // Instead, simulate a timeout error
+      mockProcess.on.mockImplementation((event, cb) => {
+        if (event === 'error') {
+          setImmediate(() => cb(new Error('Process timed out')));
+        }
+      });
+
+      await expect(dwzInfoService.searchPlayers('Test')).rejects.toThrow(/Process timed out/);
+    });
+  });
 });

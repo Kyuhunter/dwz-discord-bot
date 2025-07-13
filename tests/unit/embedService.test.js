@@ -69,6 +69,9 @@ describe('Embed Service', () => {
     
     embedService = new EmbedService();
   });
+  beforeAll(() => {
+    jest.spyOn(embedService, '_generateChartIfPossible').mockImplementation(() => Promise.resolve({ name: 'chart.png', attachment: Buffer.from('dummy') }));
+  });
 
   describe('createErrorEmbed', () => {
     test('should create error embed with title and description', () => {
@@ -101,10 +104,263 @@ describe('Embed Service', () => {
       
       embedService.createErrorEmbed('Title', 'Description', options);
       
-      // Footer should not be added when footer: false
+      expect(mockEmbedBuilder.setFooter).not.toHaveBeenCalled();
+    });
+
+    test('should add footer by default', () => {
+      embedService.createErrorEmbed('Title', 'Description');
+      
+      expect(mockEmbedBuilder.setFooter).toHaveBeenCalled();
+      expect(mockEmbedBuilder.setTimestamp).toHaveBeenCalled();
+    });
+
+    test('should handle custom footer text', () => {
+      const options = { footerText: 'Custom footer' };
+      
+      embedService.createErrorEmbed('Title', 'Description', options);
+      
+      expect(mockEmbedBuilder.setFooter).toHaveBeenCalledWith({
+        text: 'Custom footer',
+        iconURL: undefined
+      });
+    });
+  });
+
+  describe('createSuccessEmbed', () => {
+    test('should create success embed with title and description', () => {
+      const title = 'Test Success';
+      const description = 'Success description';
+      
+      const result = embedService.createSuccessEmbed(title, description);
+      
+      expect(mockEmbedBuilder.setColor).toHaveBeenCalledWith('#00FF00');
+      expect(mockEmbedBuilder.setTitle).toHaveBeenCalledWith('✅ Test Success');
+      expect(mockEmbedBuilder.setDescription).toHaveBeenCalledWith('Success description');
+      expect(result).toBe(mockEmbedBuilder);
+    });
+
+    test('should handle options with fields', () => {
+      const options = {
+        fields: [
+          { name: 'Field 1', value: 'Value 1', inline: true }
+        ]
+      };
+      
+      embedService.createSuccessEmbed('Title', 'Description', options);
+      
+      expect(mockEmbedBuilder.addFields).toHaveBeenCalledWith(options.fields);
+    });
+
+    test('should handle options without footer', () => {
+      const options = { footer: false };
+      
+      embedService.createSuccessEmbed('Title', 'Description', options);
+      
       expect(mockEmbedBuilder.setFooter).not.toHaveBeenCalled();
     });
   });
+
+  describe('createInfoEmbed', () => {
+    test('should create info embed with title and description', () => {
+      const title = 'Test Info';
+      const description = 'Info description';
+      
+      const result = embedService.createInfoEmbed(title, description);
+      
+      expect(mockEmbedBuilder.setColor).toHaveBeenCalledWith('#0099FF');
+      expect(mockEmbedBuilder.setTitle).toHaveBeenCalledWith('Test Info');
+      expect(mockEmbedBuilder.setDescription).toHaveBeenCalledWith('Info description');
+      expect(result).toBe(mockEmbedBuilder);
+    });
+
+    test('should handle options with fields', () => {
+      const options = {
+        fields: [
+          { name: 'Field 1', value: 'Value 1', inline: true }
+        ]
+      };
+      
+      embedService.createInfoEmbed('Title', 'Description', options);
+      
+      expect(mockEmbedBuilder.addFields).toHaveBeenCalledWith(options.fields);
+    });
+
+    test('should handle options without footer', () => {
+      const options = { footer: false };
+      
+      embedService.createInfoEmbed('Title', 'Description', options);
+      
+      expect(mockEmbedBuilder.setFooter).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('createNoPlayersFoundEmbed', () => {
+    test('should create no players found embed without club filter', () => {
+      const searchQuery = 'Unknown Player';
+      
+      const result = embedService.createNoPlayersFoundEmbed(searchQuery, false);
+      
+      expect(mockEmbedBuilder.setColor).toHaveBeenCalledWith('#FF0000');
+      expect(mockEmbedBuilder.setTitle).toHaveBeenCalledWith('🔍 Keine Spieler gefunden');
+      expect(mockEmbedBuilder.setDescription).toHaveBeenCalledWith('Keine Spieler gefunden für: **Unknown Player**');
+      expect(mockEmbedBuilder.addFields).toHaveBeenCalledTimes(2);
+      expect(result).toBe(mockEmbedBuilder);
+    });
+
+    test('should create no players found embed with club filter', () => {
+      const searchQuery = 'Unknown Player (Club: Test Club)';
+      
+      const result = embedService.createNoPlayersFoundEmbed(searchQuery, true);
+      
+      expect(mockEmbedBuilder.setColor).toHaveBeenCalledWith('#FF0000');
+      expect(mockEmbedBuilder.setTitle).toHaveBeenCalledWith('🔍 Keine Spieler gefunden');
+      expect(mockEmbedBuilder.setDescription).toHaveBeenCalledWith('Keine Spieler gefunden für: **Unknown Player (Club: Test Club)**');
+      expect(mockEmbedBuilder.addFields).toHaveBeenCalledTimes(2);
+      
+      // Verify search tips include club-specific advice
+      const addFieldsCalls = mockEmbedBuilder.addFields.mock.calls;
+      const searchTipsCall = addFieldsCalls.find(call => 
+        call[0].name === '💡 Suchtipps'
+      );
+      expect(searchTipsCall[0].value).toContain('Überprüfen Sie den Vereinsnamen oder lassen Sie das Club-Feld leer');
+    });
+
+    test('should include general search tips without club filter', () => {
+      const searchQuery = 'Test Player';
+      
+      embedService.createNoPlayersFoundEmbed(searchQuery, false);
+      
+      const addFieldsCalls = mockEmbedBuilder.addFields.mock.calls;
+      const searchTipsCall = addFieldsCalls.find(call => 
+        call[0].name === '💡 Suchtipps'
+      );
+      expect(searchTipsCall[0].value).toContain('Verwenden Sie das Club-Feld für präzisere Suche');
+    });
+  });
+
+  describe('createMultiplePlayersEmbed', () => {
+    test('should create multiple players embed', () => {
+      const players = [
+        { name: 'Player 1', zpk: '12345', dwz: '1800', club: 'Club A' },
+        { name: 'Player 2', zpk: '67890', dwz: '1750', club: 'Club B' }
+      ];
+      const searchQuery = 'Player';
+      
+      const result = embedService.createMultiplePlayersEmbed(players, searchQuery);
+      
+      expect(mockEmbedBuilder.setColor).toHaveBeenCalledWith('#0099FF');
+      expect(mockEmbedBuilder.setTitle).toHaveBeenCalledWith('🔍 Mehrere Spieler gefunden');
+      expect(mockEmbedBuilder.setDescription).toHaveBeenCalledWith('Gefunden: **2** Spieler für "Player"');
+      expect(result).toBe(mockEmbedBuilder);
+    });
+
+    test('should handle players with duplicate names', () => {
+      const players = [
+        { name: 'Player 1', zpk: '12345', dwz: '1800', club: 'Club A', hasNameDuplicate: true },
+        { name: 'Player 1', zpk: '67890', dwz: '1750', club: 'Club B', hasNameDuplicate: true }
+      ];
+      const searchQuery = 'Player 1';
+      
+      embedService.createMultiplePlayersEmbed(players, searchQuery);
+      
+      // Should call _addDuplicateNamesHint method
+      expect(mockEmbedBuilder.addFields).toHaveBeenCalled();
+    });
+
+    test('should handle more results than limit', () => {
+      // Mock LIMITS to test truncation
+      const { LIMITS } = require('../../src/constants');
+      LIMITS.MAX_SEARCH_RESULTS = 2;
+      
+      const players = [
+        { name: 'Player 1', zpk: '12345', dwz: '1800', club: 'Club A' },
+        { name: 'Player 2', zpk: '67890', dwz: '1750', club: 'Club B' },
+        { name: 'Player 3', zpk: '11111', dwz: '1700', club: 'Club C' }
+      ];
+      const searchQuery = 'Player';
+      
+      embedService.createMultiplePlayersEmbed(players, searchQuery);
+      
+      // Should add "more results" field
+      const addFieldsCalls = mockEmbedBuilder.addFields.mock.calls;
+      const moreResultsCall = addFieldsCalls.find(call => 
+        call[0].name === '📋 Weitere Ergebnisse'
+      );
+      expect(moreResultsCall).toBeDefined();
+      expect(moreResultsCall[0].value).toContain('Es gibt 1 weitere Spieler');
+    });
+  });
+
+  describe('createPlayerDetailsEmbed', () => {
+    beforeEach(() => {
+      // Mock chart generation to return null (no chart)
+      jest.spyOn(embedService, '_generateChartIfPossible').mockResolvedValue(null);
+    });
+
+    test('should create player details embed without tournaments', async () => {
+      const player = {
+        name: 'Hans Mueller',
+        zpk: '12345',
+        dwz: '1800',
+        club: 'Test Club'
+      };
+      
+      const result = await embedService.createPlayerDetailsEmbed(player);
+      
+      expect(mockEmbedBuilder.setColor).toHaveBeenCalledWith('#00FF00');
+      expect(mockEmbedBuilder.setTitle).toHaveBeenCalledWith('♟️ Hans Mueller');
+      expect(mockEmbedBuilder.setDescription).toHaveBeenCalledWith('DWZ-Informationen vom Deutschen Schachbund');
+      expect(result).toEqual({
+        embeds: [mockEmbedBuilder],
+        files: []
+      });
+    });
+
+    test('should create player details embed with tournaments', async () => {
+      const player = {
+        name: 'Hans Mueller',
+        zpk: '12345',
+        dwz: '1800',
+        club: 'Test Club',
+        tournaments: [
+          { name: 'Tournament 1', date: '2023-01-01', rating: '1800' },
+          { name: 'Tournament 2', date: '2023-02-01', rating: '1825' }
+        ]
+      };
+      
+      jest.spyOn(embedService, '_addTournamentStatistics').mockImplementation(() => {});
+      
+      const result = await embedService.createPlayerDetailsEmbed(player);
+      
+      expect(embedService._addTournamentStatistics).toHaveBeenCalledWith(mockEmbedBuilder, player.tournaments);
+      expect(result).toEqual({
+        embeds: [mockEmbedBuilder],
+        files: []
+      });
+    });
+
+    test('should create player details embed with chart attachment', async () => {
+      const player = {
+        name: 'Hans Mueller',
+        zpk: '12345',
+        dwz: '1800',
+        tournaments: [
+          { name: 'Tournament 1', date: '2023-01-01', rating: '1800' }
+        ]
+      };
+      
+      const mockChartAttachment = { name: 'chart.png', attachment: 'mock-buffer' };
+      embedService._generateChartIfPossible.mockResolvedValue(mockChartAttachment);
+      
+      const result = await embedService.createPlayerDetailsEmbed(player);
+      
+      expect(result).toEqual({
+        embeds: [mockEmbedBuilder],
+        files: [mockChartAttachment]
+      });
+    });
+  });
+
 
   describe('createSuccessEmbed', () => {
     test('should create success embed with correct color and title', () => {
