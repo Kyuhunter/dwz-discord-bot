@@ -1,10 +1,10 @@
 const { AttachmentBuilder } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
-const { validateTournamentData } = require('../validators');
+const { validateTournamentData } = require('../../validators');
 
-const { CHART_CONFIG, DWZ_CONSTANTS, LIMITS } = require('../constants');
-const { logger } = require('./logger');
+const { CHART_CONFIG, DWZ_CONSTANTS, LIMITS } = require('../../constants');
+const { logger } = require('../logger');
 
 async function generateDWZChart(tournaments, playerName) {
     try {

@@ -49,7 +49,7 @@ describe('Constants Module', () => {
       expect(constants.DWZ_CONFIG.BASE_URL).toMatch(/^https?:\/\//);
       
       expect(typeof constants.DWZ_CONFIG.SEARCH_PATH).toBe('string');
-      expect(constants.DWZ_CONFIG.SEARCH_PATH).toStartWith('/');
+      expect(constants.DWZ_CONFIG.SEARCH_PATH).toMatch(/^\//);
       
       expect(typeof constants.DWZ_CONFIG.TIMEOUT).toBe('number');
       expect(constants.DWZ_CONFIG.TIMEOUT).toBeGreaterThan(0);

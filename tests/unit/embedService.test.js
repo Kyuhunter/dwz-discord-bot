@@ -50,11 +50,24 @@ describe('Embed Service', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    embedService = new EmbedService();
+    
+    // Set up the mock EmbedBuilder
+    mockEmbedBuilder = {
+      setColor: jest.fn().mockReturnThis(),
+      setTitle: jest.fn().mockReturnThis(),
+      setDescription: jest.fn().mockReturnThis(),
+      addFields: jest.fn().mockReturnThis(),
+      setFooter: jest.fn().mockReturnThis(),
+      setTimestamp: jest.fn().mockReturnThis(),
+      setURL: jest.fn().mockReturnThis(),
+      setThumbnail: jest.fn().mockReturnThis()
+    };
     
     // Get the mock constructor
     const { EmbedBuilder } = require('discord.js');
-    mockEmbedBuilder = new EmbedBuilder();
+    EmbedBuilder.mockImplementation(() => mockEmbedBuilder);
+    
+    embedService = new EmbedService();
   });
 
   describe('createErrorEmbed', () => {
